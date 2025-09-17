@@ -75,6 +75,7 @@
     "react-day-picker": "^9.8.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
+    "react-hotkeys-hook": "^5.1.0",
     "react-resizable-panels": "^2.1.9",
     "recharts": "^2.15.4",
     "resend": "^6.1.0",

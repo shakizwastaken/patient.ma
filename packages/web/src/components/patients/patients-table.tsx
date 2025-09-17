@@ -36,6 +36,7 @@ import { api } from "@/trpc/react";
 import { authClient } from "@acme/shared/client";
 import { CreatePatientDialog } from "./create-patient-dialog";
 import { UpdatePatientDialog } from "./update-patient-dialog";
+import { CreateAppointmentDialog } from "../calendar/create-appointment-dialog";
 import { toast } from "sonner";
 import type { Patient, PatientsTableProps } from "@/types/patient";
 
@@ -47,6 +48,8 @@ export function PatientsTable({ organizationId }: PatientsTableProps) {
     React.useState<VisibilityState>({});
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = React.useState(false);
+  const [appointmentDialogOpen, setAppointmentDialogOpen] =
+    React.useState(false);
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(
     null,
   );
@@ -169,6 +172,14 @@ export function PatientsTable({ organizationId }: PatientsTableProps) {
                   }}
                 >
                   Edit patient
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedPatient(patient);
+                    setAppointmentDialogOpen(true);
+                  }}
+                >
+                  Schedule appointment
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -328,6 +339,16 @@ export function PatientsTable({ organizationId }: PatientsTableProps) {
         onOpenChange={setUpdateDialogOpen}
         onPatientUpdated={() => refetch()}
         patient={selectedPatient}
+      />
+
+      <CreateAppointmentDialog
+        open={appointmentDialogOpen}
+        onOpenChange={setAppointmentDialogOpen}
+        onAppointmentCreated={() => {
+          toast.success("Appointment scheduled successfully");
+        }}
+        selectedDate={new Date()}
+        preSelectedPatientId={selectedPatient?.id}
       />
     </div>
   );
