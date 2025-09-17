@@ -27,7 +27,7 @@ export const env = createEnv({
   },
 
   client: {
-    NEXT_PUBLIC_APP_NAME: z.string().default("My App"),
+    NEXT_PUBLIC_APP_NAME: z.string().default("Patient"),
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string(),
   },
 
