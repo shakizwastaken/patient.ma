@@ -78,10 +78,6 @@ export function OrganizationsTable() {
     );
   };
 
-  const handleViewListings = (orgId: string, orgName: string) => {
-    router.push(`/listings?search=${encodeURIComponent(orgName)}`);
-  };
-
   const handleEditCredits = (orgId: string, currentCredits: number) => {
     setEditingCredits(orgId);
     setEditCreditsValue(currentCredits);
@@ -212,13 +208,13 @@ export function OrganizationsTable() {
                       </div>
                     ) : (
                       <div className="flex items-center space-x-2">
-                        <span className="font-mono">{/* TODO: Implement credits */}0</span>
+                        <span className="font-mono">
+                          {/* TODO: Implement credits */}0
+                        </span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() =>
-                            handleEditCredits(org.id, 0)
-                          }
+                          onClick={() => handleEditCredits(org.id, 0)}
                           className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
                         >
                           <Edit className="h-3 w-3" />
@@ -246,15 +242,6 @@ export function OrganizationsTable() {
                       >
                         <Users className="mr-1 h-4 w-4" />
                         View Users
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleViewListings(org.id, org.name)}
-                        className="h-8 px-2"
-                      >
-                        <List className="mr-1 h-4 w-4" />
-                        Show Listings
                       </Button>
                     </div>
                   </TableCell>

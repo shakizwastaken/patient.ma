@@ -9,7 +9,7 @@ export const subscriptionsRouter = createTRPCRouter({
         limit: z.number().min(1).max(100).default(10),
         search: z.string().optional(),
         organizationId: z.string().optional(),
-      })
+      }),
     )
     .query(async ({ ctx }) => {
       // TODO: Implement actual subscription queries when subscription table exists
@@ -26,7 +26,7 @@ export const subscriptionsRouter = createTRPCRouter({
       z.object({
         subscriptionId: z.string(),
         data: z.record(z.string(), z.any()),
-      })
+      }),
     )
     .mutation(async ({ ctx, input }) => {
       // TODO: Implement subscription updates with actual subscription table
@@ -40,7 +40,7 @@ export const subscriptionsRouter = createTRPCRouter({
         page: z.number().min(1).default(1),
         limit: z.number().min(1).max(100).default(10),
         search: z.string().optional(),
-      })
+      }),
     )
     .query(async ({ ctx }) => {
       // TODO: Implement actual product queries when product table exists
@@ -58,7 +58,7 @@ export const subscriptionsRouter = createTRPCRouter({
         page: z.number().min(1).default(1),
         limit: z.number().min(1).max(100).default(10),
         search: z.string().optional(),
-      })
+      }),
     )
     .query(async ({ ctx }) => {
       // TODO: Query users who have active subscriptions
@@ -69,6 +69,4 @@ export const subscriptionsRouter = createTRPCRouter({
         totalPages: 1,
       };
     }),
-
-  // getListings removed - not part of our current project
 });

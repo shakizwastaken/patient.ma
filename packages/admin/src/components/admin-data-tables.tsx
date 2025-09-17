@@ -149,8 +149,6 @@ function UsersTable() {
   );
 }
 
-// Listings functionality removed - not part of our current project
-
 function SubscribersTable() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -231,14 +229,14 @@ function SubscribersTable() {
                 </TableCell>
                 <TableCell>{subscriber.email || "N/A"}</TableCell>
                 <TableCell>
-                  <Badge variant={subscriber.banned ? "destructive" : "default"}>
+                  <Badge
+                    variant={subscriber.banned ? "destructive" : "default"}
+                  >
                     {subscriber.banned ? "Banned" : "Active"}
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">
-                    {subscriber.role || "user"}
-                  </Badge>
+                  <Badge variant="outline">{subscriber.role || "user"}</Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs">
                   {subscriber.stripeCustomerId?.slice(0, 12) || "N/A"}

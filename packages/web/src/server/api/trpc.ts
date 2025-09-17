@@ -10,7 +10,7 @@ import { initTRPC } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
-import { db } from "@acme/shared/server";
+import { db, auth } from "@acme/shared/server";
 
 /**
  * 1. CONTEXT
@@ -25,8 +25,29 @@ import { db } from "@acme/shared/server";
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
+  // Get the session from the request headers
+  const session = await auth.api.getSession({
+    headers: opts.headers,
+  });
+
+  // Get active organization if user is authenticated
+  let activeOrganization = null;
+  if (session?.user) {
+    try {
+      activeOrganization = await auth.api.getFullOrganization({
+        headers: opts.headers,
+      });
+    } catch (error) {
+      // User might not have an active organization, which is fine
+      console.log("No active organization found for user");
+    }
+  }
+
   return {
     db,
+    session,
+    user: session?.user,
+    activeOrganization,
     ...opts,
   };
 };
@@ -97,6 +118,46 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 });
 
 /**
+ * Authentication middleware
+ *
+ * Ensures that the user is authenticated before proceeding
+ */
+const authMiddleware = t.middleware(({ ctx, next }) => {
+  if (!ctx.session || !ctx.user) {
+    throw new Error("UNAUTHORIZED");
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      session: ctx.session,
+      user: ctx.user,
+    },
+  });
+});
+
+/**
+ * Organization middleware
+ *
+ * Ensures that the user is authenticated AND has an active organization
+ */
+const organizationMiddleware = t.middleware(({ ctx, next }) => {
+  if (!ctx.session || !ctx.user) {
+    throw new Error("UNAUTHORIZED");
+  }
+  if (!ctx.activeOrganization) {
+    throw new Error("NO_ACTIVE_ORGANIZATION");
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      session: ctx.session,
+      user: ctx.user,
+      organization: ctx.activeOrganization,
+    },
+  });
+});
+
+/**
  * Public (unauthenticated) procedure
  *
  * This is the base piece you use to build new queries and mutations on your tRPC API. It does not
@@ -104,3 +165,24 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
+
+/**
+ * Protected (authenticated) procedure
+ *
+ * If you want a query or mutation to ONLY be accessible to logged in users, use this. It verifies
+ * the session is valid and guarantees `ctx.session.user` is not null.
+ */
+export const protectedProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(authMiddleware);
+
+/**
+ * Organization procedure
+ *
+ * If you want a query or mutation to ONLY be accessible to users with an active organization, use this.
+ * It verifies the session is valid and guarantees `ctx.organization` is available.
+ * This automatically scopes operations to the user's active organization.
+ */
+export const organizationProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(organizationMiddleware);
