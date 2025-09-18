@@ -102,7 +102,6 @@ export function OrganizationSettingsForm() {
   if (!activeOrganization) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Paramètres du cabinet</h1>
         <p className="text-muted-foreground">Aucun cabinet actif sélectionné</p>
       </div>
     );
@@ -113,7 +112,6 @@ export function OrganizationSettingsForm() {
       {/* Organization Details */}
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Paramètres du cabinet</h1>
           <p className="text-muted-foreground">
             Mettre à jour les informations de base de votre cabinet
           </p>
@@ -148,7 +146,7 @@ export function OrganizationSettingsForm() {
           </div>
 
           <div className="grid gap-2">
-              <Label htmlFor="logo">URL du logo</Label>
+            <Label htmlFor="logo">URL du logo</Label>
             <Input
               id="logo"
               value={formData.logo}
@@ -209,8 +207,8 @@ export function OrganizationSettingsForm() {
             <div>
               <h4 className="mb-2 font-medium">Supprimer le cabinet</h4>
               <p className="text-muted-foreground mb-4 text-sm">
-                Une fois que vous supprimez un cabinet, il n'y a pas de retour en arrière. Veuillez
-                être certain.
+                Une fois que vous supprimez un cabinet, il n'y a pas de retour
+                en arrière. Veuillez être certain.
               </p>
               <Button
                 variant="destructive"

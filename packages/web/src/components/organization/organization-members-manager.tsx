@@ -112,7 +112,9 @@ export function OrganizationMembersManager() {
         setInvitations((prev) => [...prev, result.data]);
       }
     } catch (err: any) {
-      setError(err?.message || "Échec de l'envoi de l'invitation. Veuillez réessayer.");
+      setError(
+        err?.message || "Échec de l'envoi de l'invitation. Veuillez réessayer.",
+      );
     } finally {
       setIsInviting(false);
     }
@@ -135,7 +137,10 @@ export function OrganizationMembersManager() {
         setSuccess("Membre supprimé avec succès !");
         loadMembers();
       } catch (err: any) {
-        setError(err?.message || "Échec de la suppression du membre. Veuillez réessayer.");
+        setError(
+          err?.message ||
+            "Échec de la suppression du membre. Veuillez réessayer.",
+        );
       }
     },
     [activeOrganization, loadMembers],
@@ -155,7 +160,8 @@ export function OrganizationMembersManager() {
         loadMembers();
       } catch (err: any) {
         setError(
-          err?.message || "Échec de la mise à jour du rôle du membre. Veuillez réessayer.",
+          err?.message ||
+            "Échec de la mise à jour du rôle du membre. Veuillez réessayer.",
         );
       }
     },
@@ -173,7 +179,8 @@ export function OrganizationMembersManager() {
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
     } catch (err: any) {
       setError(
-        err?.message || "Échec de l'annulation de l'invitation. Veuillez réessayer.",
+        err?.message ||
+          "Échec de l'annulation de l'invitation. Veuillez réessayer.",
       );
     }
   }, []);
@@ -187,7 +194,6 @@ export function OrganizationMembersManager() {
   if (!activeOrganization) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Gestion de l'équipe</h1>
         <p className="text-muted-foreground">Aucun cabinet actif sélectionné</p>
       </div>
     );
@@ -196,7 +202,6 @@ export function OrganizationMembersManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Gestion de l'équipe</h1>
         <p className="text-muted-foreground">
           Gérer les membres et invitations pour {activeOrganization.name}
         </p>
