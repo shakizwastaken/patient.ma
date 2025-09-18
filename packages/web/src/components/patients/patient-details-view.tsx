@@ -90,22 +90,6 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
     setDetailsDialogOpen(true);
   };
 
-  const handlePatientUpdated = () => {
-    refetchPatient();
-  };
-
-  const handleAppointmentCreated = () => {
-    refetchAppointments();
-  };
-
-  const handleAppointmentUpdated = () => {
-    refetchAppointments();
-  };
-
-  const handleAppointmentDeleted = () => {
-    refetchAppointments();
-  };
-
   if (patientLoading) {
     return (
       <div className="space-y-6">
@@ -374,7 +358,9 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
       <CreateAppointmentDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onAppointmentCreated={handleAppointmentCreated}
+        onAppointmentCreated={() => {
+          // Data will be automatically refreshed via TRPC invalidation
+        }}
         selectedDate={new Date()}
         preSelectedPatientId={patientId}
       />
@@ -382,7 +368,9 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
       <UpdatePatientDialog
         open={updateDialogOpen}
         onOpenChange={setUpdateDialogOpen}
-        onPatientUpdated={handlePatientUpdated}
+        onPatientUpdated={() => {
+          // Data will be automatically refreshed via TRPC invalidation
+        }}
         patient={patient}
       />
 
@@ -390,8 +378,12 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
         appointment={selectedAppointment}
-        onAppointmentUpdated={handleAppointmentUpdated}
-        onAppointmentDeleted={handleAppointmentDeleted}
+        onAppointmentUpdated={() => {
+          // Data will be automatically refreshed via TRPC invalidation
+        }}
+        onAppointmentDeleted={() => {
+          // Data will be automatically refreshed via TRPC invalidation
+        }}
       />
     </div>
   );

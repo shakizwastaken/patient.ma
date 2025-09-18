@@ -89,11 +89,21 @@ export function CreateAppointmentDialog({
   // Fetch patients for the dropdown
   const { data: patients = [] } = api.patients.getAll.useQuery();
 
+  const utils = api.useUtils();
+
   const createAppointment = api.appointments.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all appointment-related queries to refresh the UI
+      await Promise.all([
+        utils.appointments.getAll.invalidate(),
+        utils.appointments.getByDateRange.invalidate(),
+        utils.appointments.getUpcoming.invalidate(),
+      ]);
+
       onAppointmentCreated();
       onOpenChange(false);
       form.reset();
+      toast.success("Appointment created successfully");
     },
     onError: (error) => {
       console.error("Failed to create appointment:", error);

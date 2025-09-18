@@ -201,8 +201,7 @@ export function CalendarView() {
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
           onAppointmentCreated={() => {
-            refetch();
-            toast.success("Appointment created successfully");
+            // Data will be automatically refreshed via TRPC invalidation
           }}
           selectedDate={currentDate}
         />
@@ -212,12 +211,10 @@ export function CalendarView() {
           onOpenChange={setDetailsDialogOpen}
           appointment={selectedAppointment}
           onAppointmentUpdated={() => {
-            refetch();
-            toast.success("Appointment updated successfully");
+            // Data will be automatically refreshed via TRPC invalidation
           }}
           onAppointmentDeleted={() => {
-            refetch();
-            toast.success("Appointment deleted successfully");
+            // Data will be automatically refreshed via TRPC invalidation
           }}
         />
       </div>

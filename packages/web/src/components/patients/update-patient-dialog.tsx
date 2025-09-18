@@ -98,8 +98,16 @@ export function UpdatePatientDialog({
     }
   }, [patient, form]);
 
+  const utils = api.useUtils();
+
   const updatePatient = api.patients.update.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all patient-related queries to refresh the UI
+      await Promise.all([
+        utils.patients.getAll.invalidate(),
+        utils.patients.getById.invalidate({ id: patient?.id || "" }),
+      ]);
+
       toast.success("Patient updated successfully");
       onPatientUpdated();
       onOpenChange(false);

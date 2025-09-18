@@ -63,8 +63,13 @@ export function PatientsTable({ organizationId }: PatientsTableProps) {
     refetch,
   } = api.patients.getAll.useQuery();
 
+  const utils = api.useUtils();
+
   const deletePatient = api.patients.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all patient-related queries to refresh the UI
+      await Promise.all([utils.patients.getAll.invalidate()]);
+
       toast.success("Patient deleted successfully");
       refetch();
     },

@@ -75,8 +75,13 @@ export function CreatePatientDialog({
     },
   });
 
+  const utils = api.useUtils();
+
   const createPatient = api.patients.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all patient-related queries to refresh the UI
+      await Promise.all([utils.patients.getAll.invalidate()]);
+
       toast.success("Patient created successfully");
       onPatientCreated();
       onOpenChange(false);

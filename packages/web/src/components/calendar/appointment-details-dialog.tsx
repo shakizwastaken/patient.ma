@@ -66,8 +66,18 @@ export function AppointmentDetailsDialog({
   onAppointmentUpdated,
   onAppointmentDeleted,
 }: AppointmentDetailsDialogProps) {
+  const utils = api.useUtils();
+
   const updateAppointment = api.appointments.update.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all appointment-related queries to refresh the UI
+      await Promise.all([
+        utils.appointments.getAll.invalidate(),
+        utils.appointments.getByDateRange.invalidate(),
+        utils.appointments.getUpcoming.invalidate(),
+        utils.appointments.getById.invalidate({ id: appointment?.id || "" }),
+      ]);
+
       onAppointmentUpdated();
       toast.success("Appointment updated successfully");
     },
@@ -78,7 +88,14 @@ export function AppointmentDetailsDialog({
   });
 
   const deleteAppointment = api.appointments.delete.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate all appointment-related queries to refresh the UI
+      await Promise.all([
+        utils.appointments.getAll.invalidate(),
+        utils.appointments.getByDateRange.invalidate(),
+        utils.appointments.getUpcoming.invalidate(),
+      ]);
+
       onAppointmentDeleted();
       onOpenChange(false);
       toast.success("Appointment deleted successfully");
@@ -305,7 +322,7 @@ export function AppointmentDetailsDialog({
                 <FileText className="text-muted-foreground mt-0.5 h-5 w-5" />
                 <div className="flex-1">
                   <h4 className="mb-2 font-medium">Notes</h4>
-                  <p className="text-muted-foreground whitespace-pre-wrap text-sm">
+                  <p className="text-muted-foreground text-sm whitespace-pre-wrap">
                     {appointment.notes}
                   </p>
                 </div>
