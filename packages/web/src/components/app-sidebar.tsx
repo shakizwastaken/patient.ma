@@ -29,7 +29,7 @@ import {
 const data = {
   navMain: [
     {
-      title: "Dashboard",
+      title: "Tableau de bord",
       url: "/dashboard",
       icon: LayoutDashboard,
     },
@@ -39,19 +39,19 @@ const data = {
       icon: Users,
     },
     {
-      title: "Calendar",
+      title: "Calendrier",
       url: "/calendar",
       icon: Calendar,
     },
   ],
-  navOrganization: [
+  navCabinet: [
     {
-      title: "Team Members",
+      title: "Membres de l'équipe",
       url: "/organization/members",
       icon: UserPlus,
     },
     {
-      title: "Settings",
+      title: "Paramètres",
       url: "/organization/settings",
       icon: Settings,
     },
@@ -66,7 +66,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupLabel>Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {data.navMain.map((item) => (
@@ -84,10 +84,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Organization</SidebarGroupLabel>
+          <SidebarGroupLabel>Cabinet</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {data.navOrganization.map((item) => (
+              {data.navCabinet.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <a href={item.url}>

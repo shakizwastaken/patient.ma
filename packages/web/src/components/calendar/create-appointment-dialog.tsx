@@ -34,10 +34,10 @@ import { api } from "@/trpc/react";
 import { toast } from "sonner";
 
 const createAppointmentSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, "Le titre est requis"),
   description: z.string().optional(),
-  startTime: z.string().min(1, "Start time is required"),
-  endTime: z.string().min(1, "End time is required"),
+  startTime: z.string().min(1, "L'heure de début est requise"),
+  endTime: z.string().min(1, "L'heure de fin est requise"),
   type: z.enum([
     "consultation",
     "follow_up",
@@ -45,7 +45,7 @@ const createAppointmentSchema = z.object({
     "checkup",
     "procedure",
   ]),
-  patientId: z.string().min(1, "Patient is required"),
+  patientId: z.string().min(1, "Le patient est requis"),
   notes: z.string().optional(),
 });
 
@@ -103,11 +103,11 @@ export function CreateAppointmentDialog({
       onAppointmentCreated();
       onOpenChange(false);
       form.reset();
-      toast.success("Appointment created successfully");
+      toast.success("Rendez-vous créé avec succès");
     },
     onError: (error) => {
       console.error("Failed to create appointment:", error);
-      toast.error(error.message || "Failed to create appointment");
+      toast.error(error.message || "Échec de la création du rendez-vous");
     },
   });
 
@@ -168,9 +168,9 @@ export function CreateAppointmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Schedule New Appointment</DialogTitle>
+          <DialogTitle>Programmer un nouveau rendez-vous</DialogTitle>
           <DialogDescription>
-            Create a new appointment for {selectedDate.toLocaleDateString()}.
+            Créer un nouveau rendez-vous pour le {selectedDate.toLocaleDateString()}.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,10 +181,10 @@ export function CreateAppointmentDialog({
               name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Title *</FormLabel>
+                  <FormLabel>Titre *</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Consultation with Dr. Smith"
+                      placeholder="Consultation avec Dr. Smith"
                       {...field}
                     />
                   </FormControl>
@@ -202,7 +202,7 @@ export function CreateAppointmentDialog({
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a patient" />
+                        <SelectValue placeholder="Sélectionner un patient" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -224,7 +224,7 @@ export function CreateAppointmentDialog({
                 name="startTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start Time *</FormLabel>
+                    <FormLabel>Heure de début *</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
@@ -237,7 +237,7 @@ export function CreateAppointmentDialog({
                 name="endTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Time *</FormLabel>
+                    <FormLabel>Heure de fin *</FormLabel>
                     <FormControl>
                       <Input type="datetime-local" {...field} />
                     </FormControl>
@@ -252,7 +252,7 @@ export function CreateAppointmentDialog({
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Appointment Type</FormLabel>
+                  <FormLabel>Type de rendez-vous</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -261,10 +261,10 @@ export function CreateAppointmentDialog({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="consultation">Consultation</SelectItem>
-                      <SelectItem value="follow_up">Follow-up</SelectItem>
-                      <SelectItem value="checkup">Checkup</SelectItem>
-                      <SelectItem value="procedure">Procedure</SelectItem>
-                      <SelectItem value="emergency">Emergency</SelectItem>
+                      <SelectItem value="follow_up">Suivi</SelectItem>
+                      <SelectItem value="checkup">Contrôle</SelectItem>
+                      <SelectItem value="procedure">Procédure</SelectItem>
+                      <SelectItem value="emergency">Urgence</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -280,7 +280,7 @@ export function CreateAppointmentDialog({
                   <FormLabel>Description</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Brief description of the appointment"
+                      placeholder="Brève description du rendez-vous"
                       {...field}
                     />
                   </FormControl>
@@ -297,7 +297,7 @@ export function CreateAppointmentDialog({
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Additional notes or instructions"
+                      placeholder="Notes ou instructions supplémentaires"
                       {...field}
                     />
                   </FormControl>
@@ -313,12 +313,12 @@ export function CreateAppointmentDialog({
                 onClick={() => onOpenChange(false)}
                 disabled={createAppointment.isPending}
               >
-                Cancel
+                Annuler
               </Button>
               <Button type="submit" disabled={createAppointment.isPending}>
                 {createAppointment.isPending
-                  ? "Creating..."
-                  : "Create Appointment"}
+                  ? "Création..."
+                  : "Créer le rendez-vous"}
               </Button>
             </DialogFooter>
           </form>

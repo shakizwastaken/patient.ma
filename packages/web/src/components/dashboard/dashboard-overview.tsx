@@ -75,33 +75,33 @@ export function DashboardOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Patients
+              Total des patients
             </CardTitle>
             <Users className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalPatients}</div>
-            <p className="text-muted-foreground text-xs">Registered patients</p>
+            <p className="text-muted-foreground text-xs">Patients enregistrés</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Today's Appointments
+              Rendez-vous d'aujourd'hui
             </CardTitle>
             <Calendar className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.todaysAppointments}</div>
-            <p className="text-muted-foreground text-xs">Scheduled for today</p>
+            <p className="text-muted-foreground text-xs">Programmés pour aujourd'hui</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Tomorrow's Appointments
+              Rendez-vous de demain
             </CardTitle>
             <Clock className="text-muted-foreground h-4 w-4" />
           </CardHeader>
@@ -110,7 +110,7 @@ export function DashboardOverview() {
               {stats.tomorrowsAppointments}
             </div>
             <p className="text-muted-foreground text-xs">
-              Scheduled for tomorrow
+              Programmés pour demain
             </p>
           </CardContent>
         </Card>
@@ -118,7 +118,7 @@ export function DashboardOverview() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Upcoming Appointments
+              Rendez-vous à venir
             </CardTitle>
             <Calendar className="text-muted-foreground h-4 w-4" />
           </CardHeader>
@@ -126,7 +126,7 @@ export function DashboardOverview() {
             <div className="text-2xl font-bold">
               {stats.upcomingAppointments}
             </div>
-            <p className="text-muted-foreground text-xs">Next 7 days</p>
+            <p className="text-muted-foreground text-xs">7 prochains jours</p>
           </CardContent>
         </Card>
       </div>
@@ -136,7 +136,7 @@ export function DashboardOverview() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Today's Appointments</CardTitle>
+              <CardTitle>Rendez-vous d'aujourd'hui</CardTitle>
               <CardDescription>
                 {format(today, "EEEE, MMMM do, yyyy")}
               </CardDescription>
@@ -147,7 +147,7 @@ export function DashboardOverview() {
               onClick={() => router.push("/calendar")}
             >
               <Eye className="mr-2 h-4 w-4" />
-              View Calendar
+              Voir le calendrier
             </Button>
           </div>
         </CardHeader>
@@ -156,7 +156,7 @@ export function DashboardOverview() {
             <div className="py-6 text-center">
               <Calendar className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
               <p className="text-muted-foreground">
-                No appointments scheduled for today
+                Aucun rendez-vous programmé pour aujourd'hui
               </p>
             </div>
           ) : (
@@ -185,7 +185,7 @@ export function DashboardOverview() {
               ))}
               {todaysAppointments.length > 5 && (
                 <p className="text-muted-foreground text-center text-sm">
-                  +{todaysAppointments.length - 5} more appointments
+                  +{todaysAppointments.length - 5} autres rendez-vous
                 </p>
               )}
             </div>
@@ -198,8 +198,8 @@ export function DashboardOverview() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Recent Patients</CardTitle>
-              <CardDescription>Latest registered patients</CardDescription>
+              <CardTitle>Patients récents</CardTitle>
+              <CardDescription>Derniers patients enregistrés</CardDescription>
             </div>
             <Button
               variant="outline"
@@ -207,7 +207,7 @@ export function DashboardOverview() {
               onClick={() => router.push("/patients")}
             >
               <Eye className="mr-2 h-4 w-4" />
-              View All
+              Voir tout
             </Button>
           </div>
         </CardHeader>
@@ -216,11 +216,11 @@ export function DashboardOverview() {
             <div className="py-6 text-center">
               <Users className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
               <p className="text-muted-foreground">
-                No patients registered yet
+                Aucun patient enregistré pour le moment
               </p>
               <Button className="mt-4" onClick={() => router.push("/patients")}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add First Patient
+                Ajouter le premier patient
               </Button>
             </div>
           ) : (
@@ -237,11 +237,11 @@ export function DashboardOverview() {
                     <p className="text-muted-foreground text-sm">
                       {patient.email ||
                         patient.phoneNumber ||
-                        "No contact info"}
+                        "Aucune information de contact"}
                     </p>
                   </div>
                   {patient.age && (
-                    <Badge variant="secondary">{patient.age} years old</Badge>
+                    <Badge variant="secondary">{patient.age} ans</Badge>
                   )}
                 </div>
               ))}

@@ -54,7 +54,7 @@ export function CreateOrganizationDialog({
       window.location.reload();
     } catch (err: any) {
       setError(
-        err?.message || "Failed to create organization. Please try again.",
+        err?.message || "Échec de la création du cabinet. Veuillez réessayer.",
       );
     } finally {
       setIsCreating(false);
@@ -65,19 +65,19 @@ export function CreateOrganizationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader className="text-center">
-          <DialogTitle className="text-xl">Create New Organization</DialogTitle>
+          <DialogTitle className="text-xl">Créer un nouveau cabinet</DialogTitle>
           <DialogDescription>
-            Create a new organization to manage projects and team members.
+            Créer un nouveau cabinet pour gérer les projets et les membres de l'équipe.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleCreateOrganization} className="space-y-4">
           <div className="grid gap-2">
-            <Label htmlFor="dialogOrgName">Organization Name</Label>
+            <Label htmlFor="dialogOrgName">Nom du cabinet</Label>
             <Input
               id="dialogOrgName"
               type="text"
-              placeholder="Enter organization name"
+              placeholder="Entrez le nom du cabinet"
               value={orgName}
               onChange={(e) => setOrgName(e.target.value)}
               required
@@ -87,14 +87,14 @@ export function CreateOrganizationDialog({
               autoCorrect="off"
             />
             <p className="text-muted-foreground text-xs">
-              This will be the name displayed to your team members
+              Ce sera le nom affiché à vos membres d'équipe
             </p>
           </div>
 
           {error && (
             <Alert variant="destructive">
               <AlertCircle />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>Erreur</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -107,14 +107,14 @@ export function CreateOrganizationDialog({
               className="flex-1"
               disabled={isCreating}
             >
-              Cancel
+              Annuler
             </Button>
             <Button
               type="submit"
               className="flex-1"
               disabled={isCreating || !orgName.trim()}
             >
-              {isCreating ? "Creating..." : "Create"}
+              {isCreating ? "Création..." : "Créer"}
             </Button>
           </div>
         </form>

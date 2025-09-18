@@ -35,11 +35,11 @@ export default async function CalendarPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+                <BreadcrumbLink href="/dashboard">Tableau de bord</BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Calendar</BreadcrumbPage>
+                <BreadcrumbPage>Calendrier</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -47,7 +47,7 @@ export default async function CalendarPage() {
       </header>
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex flex-shrink-0 items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Calendrier</h1>
         </div>
         <div className="min-h-0 flex-1">
           <HydrateClient>

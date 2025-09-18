@@ -42,8 +42,8 @@ function calculateAge(birthDate: Date): number {
 }
 
 const createPatientSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  firstName: z.string().min(1, "Le prénom est requis"),
+  lastName: z.string().min(1, "Le nom de famille est requis"),
   phoneNumber: z.string().optional(),
   email: z.string().optional(),
   age: z.number().int().min(0).max(150).optional(),
@@ -82,14 +82,14 @@ export function CreatePatientDialog({
       // Invalidate all patient-related queries to refresh the UI
       await Promise.all([utils.patients.getAll.invalidate()]);
 
-      toast.success("Patient created successfully");
+      toast.success("Patient créé avec succès");
       onPatientCreated();
       onOpenChange(false);
       form.reset();
     },
     onError: (error) => {
       console.error("Failed to create patient:", error);
-      toast.error(error.message || "Failed to create patient");
+      toast.error(error.message || "Échec de la création du patient");
     },
   });
 
@@ -116,10 +116,10 @@ export function CreatePatientDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Patient</DialogTitle>
+          <DialogTitle>Ajouter un nouveau patient</DialogTitle>
           <DialogDescription>
-            Create a new patient record. All fields marked with * are required.
-            Enter the birth date and age will be calculated automatically.
+            Créer un nouveau dossier patient. Tous les champs marqués d'un * sont obligatoires.
+            Entrez la date de naissance et l'âge sera calculé automatiquement.
           </DialogDescription>
         </DialogHeader>
 
@@ -131,9 +131,9 @@ export function CreatePatientDialog({
                 name="firstName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First Name *</FormLabel>
+                    <FormLabel>Prénom *</FormLabel>
                     <FormControl>
-                      <Input placeholder="John" {...field} />
+                      <Input placeholder="Jean" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -144,9 +144,9 @@ export function CreatePatientDialog({
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last Name *</FormLabel>
+                    <FormLabel>Nom de famille *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Doe" {...field} />
+                      <Input placeholder="Dupont" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -163,7 +163,7 @@ export function CreatePatientDialog({
                   <FormControl>
                     <Input
                       type="email"
-                      placeholder="john.doe@example.com"
+                      placeholder="jean.dupont@exemple.com"
                       {...field}
                     />
                   </FormControl>
@@ -177,9 +177,9 @@ export function CreatePatientDialog({
               name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel>Numéro de téléphone</FormLabel>
                   <FormControl>
-                    <Input placeholder="+1 (555) 123-4567" {...field} />
+                    <Input placeholder="+33 1 23 45 67 89" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -192,7 +192,7 @@ export function CreatePatientDialog({
                 name="birthDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Birth Date</FormLabel>
+                    <FormLabel>Date de naissance</FormLabel>
                     <FormControl>
                       <Input
                         type="date"
@@ -227,11 +227,11 @@ export function CreatePatientDialog({
                 name="age"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Age (calculated)</FormLabel>
+                    <FormLabel>Âge (calculé)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
-                        placeholder="Calculated from birth date"
+                        placeholder="Calculé à partir de la date de naissance"
                         {...field}
                         value={field.value || ""}
                         readOnly
@@ -251,10 +251,10 @@ export function CreatePatientDialog({
                 onClick={() => onOpenChange(false)}
                 disabled={createPatient.isPending}
               >
-                Cancel
+                Annuler
               </Button>
               <Button type="submit" disabled={createPatient.isPending}>
-                {createPatient.isPending ? "Creating..." : "Create Patient"}
+                {createPatient.isPending ? "Création..." : "Créer le patient"}
               </Button>
             </DialogFooter>
           </form>

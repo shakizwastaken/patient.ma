@@ -105,14 +105,14 @@ export function OrganizationMembersManager() {
         organizationId: activeOrganization.id,
       });
       setInviteEmail("");
-      setSuccess("Invitation sent successfully!");
+      setSuccess("Invitation envoyée avec succès !");
 
       // Add to local state instead of refetching
       if (result.data) {
         setInvitations((prev) => [...prev, result.data]);
       }
     } catch (err: any) {
-      setError(err?.message || "Failed to send invitation. Please try again.");
+      setError(err?.message || "Échec de l'envoi de l'invitation. Veuillez réessayer.");
     } finally {
       setIsInviting(false);
     }
@@ -123,7 +123,7 @@ export function OrganizationMembersManager() {
       if (!activeOrganization) return;
 
       const confirmed = window.confirm(
-        "Are you sure you want to remove this member?",
+        "Êtes-vous sûr de vouloir supprimer ce membre ?",
       );
       if (!confirmed) return;
 
@@ -132,10 +132,10 @@ export function OrganizationMembersManager() {
           memberIdOrEmail,
           organizationId: activeOrganization.id,
         });
-        setSuccess("Member removed successfully!");
+        setSuccess("Membre supprimé avec succès !");
         loadMembers();
       } catch (err: any) {
-        setError(err?.message || "Failed to remove member. Please try again.");
+        setError(err?.message || "Échec de la suppression du membre. Veuillez réessayer.");
       }
     },
     [activeOrganization, loadMembers],
@@ -151,11 +151,11 @@ export function OrganizationMembersManager() {
           role: newRole,
           organizationId: activeOrganization.id,
         });
-        setSuccess("Member role updated successfully!");
+        setSuccess("Rôle du membre mis à jour avec succès !");
         loadMembers();
       } catch (err: any) {
         setError(
-          err?.message || "Failed to update member role. Please try again.",
+          err?.message || "Échec de la mise à jour du rôle du membre. Veuillez réessayer.",
         );
       }
     },
@@ -167,13 +167,13 @@ export function OrganizationMembersManager() {
       await authClient.organization.cancelInvitation({
         invitationId,
       });
-      setSuccess("Invitation canceled successfully!");
+      setSuccess("Invitation annulée avec succès !");
 
       // Update local state instead of refetching
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
     } catch (err: any) {
       setError(
-        err?.message || "Failed to cancel invitation. Please try again.",
+        err?.message || "Échec de l'annulation de l'invitation. Veuillez réessayer.",
       );
     }
   }, []);
@@ -181,14 +181,14 @@ export function OrganizationMembersManager() {
   const handleCopyInviteLink = useCallback((invitationId: string) => {
     const inviteLink = `${window.location.origin}/accept-invitation/${invitationId}`;
     navigator.clipboard.writeText(inviteLink);
-    toast.success("Invite link copied to clipboard!");
+    toast.success("Lien d'invitation copié dans le presse-papiers !");
   }, []);
 
   if (!activeOrganization) {
     return (
       <div>
-        <h1 className="text-2xl font-bold">Team Management</h1>
-        <p className="text-muted-foreground">No active organization selected</p>
+        <h1 className="text-2xl font-bold">Gestion de l'équipe</h1>
+        <p className="text-muted-foreground">Aucun cabinet actif sélectionné</p>
       </div>
     );
   }
@@ -196,9 +196,9 @@ export function OrganizationMembersManager() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Team Management</h1>
+        <h1 className="text-2xl font-bold">Gestion de l'équipe</h1>
         <p className="text-muted-foreground">
-          Manage members and invitations for {activeOrganization.name}
+          Gérer les membres et invitations pour {activeOrganization.name}
         </p>
       </div>
 
@@ -207,14 +207,14 @@ export function OrganizationMembersManager() {
           {error && (
             <Alert variant="destructive">
               <AlertCircle />
-              <AlertTitle>Error</AlertTitle>
+              <AlertTitle>Erreur</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           {success && (
             <Alert>
               <CheckCircle />
-              <AlertTitle>Success</AlertTitle>
+              <AlertTitle>Succès</AlertTitle>
               <AlertDescription>{success}</AlertDescription>
             </Alert>
           )}
@@ -224,20 +224,20 @@ export function OrganizationMembersManager() {
       {/* Invite New Member */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Invite New Member</h2>
+          <h2 className="text-xl font-semibold">Inviter un nouveau membre</h2>
           <p className="text-muted-foreground">
-            Send an invitation to join {activeOrganization.name}
+            Envoyer une invitation pour rejoindre {activeOrganization.name}
           </p>
         </div>
 
         <form onSubmit={handleInviteMember} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="inviteEmail">Email Address</Label>
+              <Label htmlFor="inviteEmail">Adresse e-mail</Label>
               <Input
                 id="inviteEmail"
                 type="email"
-                placeholder="colleague@company.com"
+                placeholder="collegue@cabinet.com"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 required
@@ -248,14 +248,14 @@ export function OrganizationMembersManager() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="inviteRole">Role</Label>
+              <Label htmlFor="inviteRole">Rôle</Label>
               <Select value={inviteRole} onValueChange={setInviteRole}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="member">Member</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">Membre</SelectItem>
+                  <SelectItem value="admin">Administrateur</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -266,7 +266,7 @@ export function OrganizationMembersManager() {
             disabled={isInviting || !inviteEmail.trim()}
             className="w-full md:w-auto"
           >
-            {isInviting ? "Sending Invitation..." : "Send Invitation"}
+            {isInviting ? "Envoi de l'invitation..." : "Envoyer l'invitation"}
           </Button>
         </form>
       </div>
@@ -276,14 +276,14 @@ export function OrganizationMembersManager() {
       {/* Current Members */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-xl font-semibold">Organization Members</h2>
+          <h2 className="text-xl font-semibold">Membres du cabinet</h2>
           <p className="text-muted-foreground">
-            Current members of {activeOrganization.name}
+            Membres actuels de {activeOrganization.name}
           </p>
         </div>
 
         {isLoading ? (
-          <div className="py-8 text-center">Loading members...</div>
+          <div className="py-8 text-center">Chargement des membres...</div>
         ) : (
           <MembersDataTable
             data={members}
@@ -301,10 +301,10 @@ export function OrganizationMembersManager() {
           <div className="space-y-4">
             <div>
               <h2 className="text-xl font-semibold">
-                Pending Invitations ({invitations.length})
+                Invitations en attente ({invitations.length})
               </h2>
               <p className="text-muted-foreground">
-                Invitations waiting for acceptance
+                Invitations en attente d'acceptation
               </p>
             </div>
 
@@ -321,7 +321,7 @@ export function OrganizationMembersManager() {
                       <Badge variant="secondary">{invitation.status}</Badge>
                     </div>
                     <p className="text-muted-foreground text-xs">
-                      Invited{" "}
+                      Invité{" "}
                       {invitation.createdAt
                         ? new Date(invitation.createdAt).toLocaleDateString()
                         : "Unknown date"}
@@ -334,14 +334,14 @@ export function OrganizationMembersManager() {
                       onClick={() => handleCopyInviteLink(invitation.id)}
                     >
                       <Copy className="mr-2 h-4 w-4" />
-                      Copy Link
+                      Copier le lien
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => handleCancelInvitation(invitation.id)}
                     >
-                      Cancel
+                      Annuler
                     </Button>
                   </div>
                 </div>

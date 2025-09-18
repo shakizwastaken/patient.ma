@@ -23,11 +23,13 @@ export default function OrganizationSettingsPage() {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem className="hidden md:block">
-                <BreadcrumbLink href="/dashboard">Dashboard</BreadcrumbLink>
+                <BreadcrumbLink href="/dashboard">
+                  Tableau de bord
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Organization Settings</BreadcrumbPage>
+                <BreadcrumbPage>Paramètres du cabinet</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -36,7 +38,7 @@ export default function OrganizationSettingsPage() {
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex flex-shrink-0 items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Organization Settings
+            Paramètres du cabinet
           </h1>
         </div>
         <div className="min-h-0 flex-1">
