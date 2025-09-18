@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { eq, and, gte, lte, desc } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { appointment, patient, patientOrganization } from "@acme/shared/server";
+import {
+  appointment,
+  patient,
+  patientOrganization,
+  organizationAvailability,
+  organizationScheduleOverride,
+} from "@acme/shared/server";
 
 import { createTRPCRouter, organizationProcedure } from "@/server/api/trpc";
 
@@ -61,6 +67,78 @@ const getAppointmentsSchema = z.object({
   patientId: z.string().uuid().optional(),
   status: z.enum(["scheduled", "completed", "cancelled", "no_show"]).optional(),
 });
+
+// Helper function to validate appointment availability
+async function validateAppointmentAvailability(
+  ctx: any,
+  startTime: Date,
+  endTime: Date,
+) {
+  const dayOfWeek = startTime.getDay();
+
+  // Check organization availability for this day
+  const dayAvailability = await ctx.db
+    .select()
+    .from(organizationAvailability)
+    .where(
+      and(
+        eq(organizationAvailability.organizationId, ctx.organization.id),
+        eq(organizationAvailability.dayOfWeek, dayOfWeek),
+        eq(organizationAvailability.isAvailable, true),
+      ),
+    )
+    .limit(1);
+
+  if (dayAvailability.length === 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Le cabinet n'est pas ouvert ce jour-là",
+    });
+  }
+
+  // Check if appointment time is within available hours
+  const [availableStartHour, availableStartMinute] =
+    dayAvailability[0].startTime.split(":").map(Number);
+  const [availableEndHour, availableEndMinute] = dayAvailability[0].endTime
+    .split(":")
+    .map(Number);
+
+  const availableStartTime = new Date(startTime);
+  availableStartTime.setHours(availableStartHour, availableStartMinute, 0, 0);
+
+  const availableEndTime = new Date(startTime);
+  availableEndTime.setHours(availableEndHour, availableEndMinute, 0, 0);
+
+  if (startTime < availableStartTime || endTime > availableEndTime) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Le rendez-vous doit être programmé entre ${dayAvailability[0].startTime} et ${dayAvailability[0].endTime}`,
+    });
+  }
+
+  // Check for schedule overrides
+  const overrides = await ctx.db
+    .select()
+    .from(organizationScheduleOverride)
+    .where(
+      and(
+        eq(organizationScheduleOverride.organizationId, ctx.organization.id),
+        lte(organizationScheduleOverride.startDate, endTime),
+        gte(organizationScheduleOverride.endDate, startTime),
+      ),
+    );
+
+  for (const override of overrides) {
+    if (override.type === "unavailable") {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Impossible de programmer un rendez-vous pendant cette période: ${override.title}`,
+      });
+    }
+  }
+
+  return true;
+}
 
 export const appointmentsRouter = createTRPCRouter({
   // Get appointments for the active organization
@@ -253,6 +331,13 @@ export const appointmentsRouter = createTRPCRouter({
           });
         }
 
+        // Validate appointment availability
+        await validateAppointmentAvailability(
+          ctx,
+          input.startTime,
+          input.endTime,
+        );
+
         // Check for scheduling conflicts
         const conflictingAppointments = await ctx.db
           .select({ id: appointment.id })
@@ -333,6 +418,27 @@ export const appointmentsRouter = createTRPCRouter({
             code: "NOT_FOUND",
             message: "Appointment not found in your organization",
           });
+        }
+
+        // If startTime or endTime is being updated, validate availability
+        if (cleanUpdateData.startTime || cleanUpdateData.endTime) {
+          // Get the current appointment to use existing times if not being updated
+          const currentAppointment = await ctx.db
+            .select()
+            .from(appointment)
+            .where(eq(appointment.id, id))
+            .limit(1);
+
+          if (currentAppointment.length > 0) {
+            const startTime = cleanUpdateData.startTime
+              ? new Date(cleanUpdateData.startTime)
+              : currentAppointment[0]!.startTime;
+            const endTime = cleanUpdateData.endTime
+              ? new Date(cleanUpdateData.endTime)
+              : currentAppointment[0]!.endTime;
+
+            await validateAppointmentAvailability(ctx, startTime, endTime);
+          }
         }
 
         const [updatedAppointment] = await ctx.db

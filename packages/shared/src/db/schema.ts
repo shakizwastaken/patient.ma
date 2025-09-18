@@ -191,3 +191,68 @@ export const appointment = pgTable("appointment", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+// Organization availability schedule - defines when the clinic is open
+export const organizationAvailability = pgTable("organization_availability", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  dayOfWeek: integer("day_of_week").notNull(), // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime: text("start_time").notNull(), // "09:00" format
+  endTime: text("end_time").notNull(), // "17:00" format
+  isAvailable: boolean("is_available").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+// Organization schedule overrides (holidays, maintenance, special hours, etc.)
+export const organizationScheduleOverride = pgTable(
+  "organization_schedule_override",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    startDate: timestamp("start_date").notNull(),
+    endDate: timestamp("end_date").notNull(),
+    startTime: text("start_time"), // Optional: specific start time for this override
+    endTime: text("end_time"), // Optional: specific end time for this override
+    type: text("type").default("unavailable").notNull(), // unavailable, reduced_hours, maintenance, holiday
+    isRecurring: boolean("is_recurring").default(false).notNull(),
+    recurringPattern: text("recurring_pattern"), // JSON string for recurring rules
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+);
+
+// Organization appointment configuration
+export const organizationAppointmentConfig = pgTable(
+  "organization_appointment_config",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    slotDurationMinutes: integer("slot_duration_minutes").default(30).notNull(), // 15, 30, 45, 60
+    bufferTimeMinutes: integer("buffer_time_minutes").default(0).notNull(), // Time between appointments
+    advanceBookingDays: integer("advance_booking_days").default(30).notNull(), // How far in advance bookings allowed
+    sameDayBookingAllowed: boolean("same_day_booking_allowed")
+      .default(true)
+      .notNull(),
+    maxAppointmentsPerDay: integer("max_appointments_per_day"), // Optional: limit daily appointments
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+);
