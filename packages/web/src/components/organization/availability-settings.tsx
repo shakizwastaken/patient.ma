@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,26 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/react";
+import { authClient } from "@acme/shared/client";
+import {
+  getTimezoneInfo,
+  formatInTimezone,
+  COMMON_TIMEZONES,
+} from "@/lib/timezone";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
 
 // Form schema for availability settings
 const availabilityFormSchema = z
@@ -79,8 +100,10 @@ const dayNames = [
 
 export function AvailabilitySettings() {
   const [selectedDay, setSelectedDay] = useState<number>(1); // Default to Monday
+  const [timezoneOpen, setTimezoneOpen] = useState(false);
 
   const utils = api.useUtils();
+  const { data: activeOrganization } = authClient.useActiveOrganization();
 
   // Fetch current availability
   const { data: availability, isLoading } =
@@ -96,6 +119,28 @@ export function AvailabilitySettings() {
       toast.error(error.message || "Erreur lors de la mise à jour");
     },
   });
+
+  // Function for updating organization timezone
+  const handleUpdateTimezone = async (newTimezone: string) => {
+    try {
+      // Store timezone in metadata until API supports timezone field directly
+      const currentMetadata = activeOrganization?.metadata || {};
+      await authClient.organization.update({
+        organizationId: activeOrganization?.id || "",
+        data: {
+          metadata: {
+            ...currentMetadata,
+            timezone: newTimezone,
+          },
+        },
+      });
+      toast.success("Fuseau horaire mis à jour avec succès");
+    } catch (error: any) {
+      toast.error(
+        error.message || "Erreur lors de la mise à jour du fuseau horaire",
+      );
+    }
+  };
 
   // Get current availability for selected day
   const currentDayAvailability = availability?.find(
@@ -179,8 +224,118 @@ export function AvailabilitySettings() {
     );
   }
 
+  // Get timezone info - check both timezone field and metadata
+  const organizationTimezone =
+    (activeOrganization as any)?.timezone || 
+    activeOrganization?.metadata?.timezone || 
+    "Africa/Casablanca";
+  const timezoneInfo = getTimezoneInfo(organizationTimezone);
+
   return (
     <div className="space-y-6">
+      {/* Timezone Information */}
+      {activeOrganization && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Fuseau horaire du cabinet
+            </CardTitle>
+            <CardDescription>
+              Les horaires sont configurés dans le fuseau horaire de votre
+              cabinet
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Current Timezone Display */}
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className="text-sm">
+                {organizationTimezone}
+              </Badge>
+              <span className="text-muted-foreground text-sm">
+                {timezoneInfo.offset} • {timezoneInfo.abbreviation}
+              </span>
+              <span className="text-muted-foreground text-sm">
+                Heure actuelle:{" "}
+                {formatInTimezone(new Date(), organizationTimezone, "HH:mm")}
+              </span>
+            </div>
+
+            {/* Timezone Selector */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Modifier le fuseau horaire
+              </Label>
+              <Popover open={timezoneOpen} onOpenChange={setTimezoneOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={timezoneOpen}
+                    className="w-full justify-between"
+                  >
+                    {organizationTimezone
+                      ? COMMON_TIMEZONES.find(
+                          (tz) => tz.value === organizationTimezone,
+                        )?.label
+                      : "Sélectionnez un fuseau horaire..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Rechercher un fuseau horaire..." />
+                    <CommandList>
+                      <CommandEmpty>Aucun fuseau horaire trouvé.</CommandEmpty>
+                      <CommandGroup>
+                        {COMMON_TIMEZONES.map((tz) => {
+                          const tzInfo = getTimezoneInfo(tz.value);
+                          return (
+                            <CommandItem
+                              key={tz.value}
+                              value={tz.value}
+                              onSelect={(currentValue) => {
+                                if (currentValue !== organizationTimezone) {
+                                  handleUpdateTimezone(currentValue);
+                                }
+                                setTimezoneOpen(false);
+                              }}
+                            >
+                              <div className="flex w-full flex-col">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-medium">
+                                    {tz.label}
+                                  </span>
+                                  <Check
+                                    className={`ml-auto h-4 w-4 ${
+                                      organizationTimezone === tz.value
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    }`}
+                                  />
+                                </div>
+                                <span className="text-muted-foreground text-xs">
+                                  {tz.country} • {tzInfo.offset} •{" "}
+                                  {tzInfo.abbreviation}
+                                </span>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-muted-foreground text-xs">
+                Le fuseau horaire utilisé pour les horaires d'ouverture et les
+                rendez-vous
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Weekly Overview */}
       <Card>
         <CardHeader>

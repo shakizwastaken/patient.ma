@@ -6,9 +6,14 @@ import {
   organizationScheduleOverride,
   organizationAppointmentConfig,
   appointment,
+  organization,
 } from "@acme/shared/server";
 
 import { createTRPCRouter, organizationProcedure } from "@/server/api/trpc";
+import {
+  convertAvailabilityToUTC,
+  convertAvailabilityFromUTC,
+} from "@/lib/timezone";
 
 // Input validation schemas
 const createAvailabilitySchema = z.object({
@@ -58,19 +63,65 @@ const updateAppointmentConfigSchema = z.object({
 export const availabilityRouter = createTRPCRouter({
   // Get organization availability schedule
   getAvailability: organizationProcedure.query(async ({ ctx }) => {
+    // Get organization timezone
+    const org = await ctx.db
+      .select({ timezone: organization.timezone })
+      .from(organization)
+      .where(eq(organization.id, ctx.organization.id))
+      .limit(1);
+
+    const organizationTimezone = org[0]?.timezone || 
+      (org[0] as any)?.metadata?.timezone || 
+      "Africa/Casablanca";
+
     const availability = await ctx.db
       .select()
       .from(organizationAvailability)
       .where(eq(organizationAvailability.organizationId, ctx.organization.id))
       .orderBy(organizationAvailability.dayOfWeek);
 
-    return availability;
+    // Convert times from UTC to organization timezone for display
+    const convertedAvailability = availability.map((av) => {
+      const converted = convertAvailabilityFromUTC(
+        av.startTime,
+        av.endTime,
+        av.dayOfWeek,
+        organizationTimezone,
+      );
+
+      return {
+        ...av,
+        startTime: converted.startTime,
+        endTime: converted.endTime,
+      };
+    });
+
+    return convertedAvailability;
   }),
 
   // Create or update availability for a day
   setAvailability: organizationProcedure
     .input(createAvailabilitySchema)
     .mutation(async ({ ctx, input }) => {
+      // Get organization timezone
+      const org = await ctx.db
+        .select({ timezone: organization.timezone })
+        .from(organization)
+        .where(eq(organization.id, ctx.organization.id))
+        .limit(1);
+
+      const organizationTimezone = org[0]?.timezone || 
+      (org[0] as any)?.metadata?.timezone || 
+      "Africa/Casablanca";
+
+      // Convert times from organization timezone to UTC for storage
+      const { startTimeUtc, endTimeUtc } = convertAvailabilityToUTC(
+        input.startTime,
+        input.endTime,
+        input.dayOfWeek,
+        organizationTimezone,
+      );
+
       // Check if availability already exists for this day
       const existing = await ctx.db
         .select()
@@ -88,8 +139,8 @@ export const availabilityRouter = createTRPCRouter({
         await ctx.db
           .update(organizationAvailability)
           .set({
-            startTime: input.startTime,
-            endTime: input.endTime,
+            startTime: startTimeUtc,
+            endTime: endTimeUtc,
             isAvailable: input.isAvailable,
             updatedAt: new Date(),
           })
@@ -104,8 +155,8 @@ export const availabilityRouter = createTRPCRouter({
         await ctx.db.insert(organizationAvailability).values({
           organizationId: ctx.organization.id,
           dayOfWeek: input.dayOfWeek,
-          startTime: input.startTime,
-          endTime: input.endTime,
+          startTime: startTimeUtc,
+          endTime: endTimeUtc,
           isAvailable: input.isAvailable,
         });
 

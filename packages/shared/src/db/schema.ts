@@ -79,6 +79,7 @@ export const organization = pgTable("organization", {
   name: text("name").notNull(),
   slug: text("slug").unique(),
   logo: text("logo"),
+  timezone: text("timezone").default("Africa/Casablanca").notNull(), // Default to Casablanca timezone
   createdAt: timestamp("created_at").notNull(),
   metadata: text("metadata"),
 });

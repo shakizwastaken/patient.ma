@@ -57,6 +57,8 @@ export function OrganizationSettingsForm() {
           name: formData.name,
           slug: formData.slug,
           logo: formData.logo || undefined,
+          // TODO: Add timezone support when the API is updated
+          // timezone: formData.timezone,
           metadata: {
             description: formData.description,
           },
