@@ -18,7 +18,10 @@ interface DatePageProps {
 
 export default function DatePage({ params }: DatePageProps) {
   // Parse the date from the URL parameter, avoiding timezone issues
-  const [year, month, day] = params.date.split("-").map(Number);
+  const dateParts = params.date.split("-").map(Number);
+  const year = dateParts[0] ?? new Date().getFullYear();
+  const month = dateParts[1] ?? new Date().getMonth() + 1;
+  const day = dateParts[2] ?? new Date().getDate();
   const date = new Date(year, month - 1, day);
 
   return (

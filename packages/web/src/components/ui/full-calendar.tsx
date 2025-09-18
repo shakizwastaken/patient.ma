@@ -416,7 +416,7 @@ const CalendarNextTrigger = forwardRef<
       variant="outline"
       ref={ref}
       {...props}
-      onClick={(e: React.MouseEvent) => {
+      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
         next();
         onClick?.(e);
       }}
@@ -451,7 +451,7 @@ const CalendarPrevTrigger = forwardRef<
       variant="outline"
       ref={ref}
       {...props}
-      onClick={(e: React.MouseEvent) => {
+      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
         prev();
         onClick?.(e);
       }}
@@ -481,7 +481,7 @@ const CalendarTodayTrigger = forwardRef<
       variant="outline"
       ref={ref}
       {...props}
-      onClick={(e: React.MouseEvent) => {
+      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
         jumpToToday();
         onClick?.(e);
       }}
