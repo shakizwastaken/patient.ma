@@ -7,16 +7,15 @@ import { api } from "@/trpc/react";
 import { CreateAppointmentDialog } from "./create-appointment-dialog";
 import { AppointmentDetailsDialog } from "./appointment-details-dialog";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   Calendar,
   CalendarCurrentDate,
-  CalendarDayView,
   CalendarMonthView,
   CalendarNextTrigger,
   CalendarPrevTrigger,
   CalendarTodayTrigger,
   CalendarViewTrigger,
-  CalendarWeekView,
   CalendarYearView,
   type CalendarEvent,
 } from "@/components/ui/full-calendar";
@@ -60,10 +59,11 @@ function getEventColor(type: string, status: string): CalendarEvent["color"] {
 }
 
 export function CalendarView() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = React.useState(new Date());
-  const [currentView, setCurrentView] = React.useState<
-    "day" | "week" | "month" | "year"
-  >("month");
+  const [currentView, setCurrentView] = React.useState<"month" | "year">(
+    "month",
+  );
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = React.useState(false);
   const [selectedAppointment, setSelectedAppointment] =
@@ -74,16 +74,6 @@ export function CalendarView() {
     let start: Date, end: Date;
 
     switch (currentView) {
-      case "day":
-        start = new Date(currentDate);
-        start.setHours(0, 0, 0, 0);
-        end = new Date(currentDate);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case "week":
-        start = startOfWeek(currentDate, { weekStartsOn: 0 });
-        end = endOfWeek(currentDate, { weekStartsOn: 0 });
-        break;
       case "month":
         start = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
         end = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
@@ -138,21 +128,9 @@ export function CalendarView() {
       onChangeView={setCurrentView}
       enableHotkeys={true}
     >
-      <div className="flex h-dvh flex-col py-6">
+      <div className="flex h-full flex-col overflow-hidden">
         {/* Calendar Header */}
         <div className="mb-6 flex items-center gap-2">
-          <CalendarViewTrigger
-            className="aria-[current=true]:bg-accent"
-            view="day"
-          >
-            Day
-          </CalendarViewTrigger>
-          <CalendarViewTrigger
-            view="week"
-            className="aria-[current=true]:bg-accent"
-          >
-            Week
-          </CalendarViewTrigger>
           <CalendarViewTrigger
             view="month"
             className="aria-[current=true]:bg-accent"
@@ -189,17 +167,31 @@ export function CalendarView() {
         </div>
 
         {/* Calendar Views */}
-        <div className="relative flex-1 overflow-auto">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           {isLoading ? (
             <div className="flex h-96 items-center justify-center">
               <div className="text-muted-foreground">Loading calendar...</div>
             </div>
           ) : (
             <>
-              <CalendarDayView />
-              <CalendarWeekView />
-              <CalendarMonthView />
-              <CalendarYearView />
+              <CalendarMonthView
+                onDateClick={(date) => {
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                  const day = String(date.getDate()).padStart(2, "0");
+                  const dateString = `${year}-${month}-${day}`;
+                  router.push(`/calendar/date/${dateString}`);
+                }}
+              />
+              <CalendarYearView
+                onDateClick={(date) => {
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, "0");
+                  const day = String(date.getDate()).padStart(2, "0");
+                  const dateString = `${year}-${month}-${day}`;
+                  router.push(`/calendar/date/${dateString}`);
+                }}
+              />
             </>
           )}
         </div>

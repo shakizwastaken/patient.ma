@@ -68,7 +68,28 @@ export const appointmentsRouter = createTRPCRouter({
     .input(getAppointmentsSchema)
     .query(async ({ ctx, input }) => {
       try {
-        let query = ctx.db
+        // Build conditions
+        const conditions = [
+          eq(appointment.organizationId, ctx.organization.id),
+        ];
+
+        if (input.startDate) {
+          conditions.push(gte(appointment.startTime, input.startDate));
+        }
+
+        if (input.endDate) {
+          conditions.push(lte(appointment.startTime, input.endDate));
+        }
+
+        if (input.patientId) {
+          conditions.push(eq(appointment.patientId, input.patientId));
+        }
+
+        if (input.status) {
+          conditions.push(eq(appointment.status, input.status));
+        }
+
+        const query = ctx.db
           .select({
             id: appointment.id,
             title: appointment.title,
@@ -90,32 +111,7 @@ export const appointmentsRouter = createTRPCRouter({
           })
           .from(appointment)
           .innerJoin(patient, eq(appointment.patientId, patient.id))
-          .where(eq(appointment.organizationId, ctx.organization.id));
-
-        // Add filters
-        const conditions = [
-          eq(appointment.organizationId, ctx.organization.id),
-        ];
-
-        if (input.startDate) {
-          conditions.push(gte(appointment.startTime, input.startDate));
-        }
-
-        if (input.endDate) {
-          conditions.push(lte(appointment.startTime, input.endDate));
-        }
-
-        if (input.patientId) {
-          conditions.push(eq(appointment.patientId, input.patientId));
-        }
-
-        if (input.status) {
-          conditions.push(eq(appointment.status, input.status));
-        }
-
-        if (conditions.length > 1) {
-          query = query.where(and(...conditions));
-        }
+          .where(and(...conditions));
 
         const appointments = await query.orderBy(appointment.startTime);
 
