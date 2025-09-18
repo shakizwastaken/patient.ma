@@ -7,6 +7,7 @@ import {
   Users,
   Settings,
   UserPlus,
+  Clock,
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
@@ -49,6 +50,11 @@ const data = {
       title: "Membres de l'équipe",
       url: "/organization/members",
       icon: UserPlus,
+    },
+    {
+      title: "Disponibilités",
+      url: "/organization/availability",
+      icon: Clock,
     },
     {
       title: "Paramètres",
