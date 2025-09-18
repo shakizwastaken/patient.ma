@@ -9,8 +9,20 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CalendarView } from "@/components/calendar/calendar-view";
+import { api, HydrateClient } from "@/trpc/server";
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 
-export default function CalendarPage() {
+export default async function CalendarPage() {
+  // Prefetch appointments for the current month view
+  const currentDate = new Date();
+  const startDate = startOfWeek(startOfMonth(currentDate), { weekStartsOn: 0 });
+  const endDate = endOfWeek(endOfMonth(currentDate), { weekStartsOn: 0 });
+
+  // Prefetch the appointments data on the server
+  await api.appointments.getByDateRange.prefetch({
+    startDate,
+    endDate,
+  });
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -38,7 +50,9 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
         </div>
         <div className="min-h-0 flex-1">
-          <CalendarView />
+          <HydrateClient>
+            <CalendarView />
+          </HydrateClient>
         </div>
       </div>
     </>

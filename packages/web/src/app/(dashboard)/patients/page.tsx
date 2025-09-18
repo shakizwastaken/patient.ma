@@ -9,8 +9,11 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { PatientsTable } from "@/components/patients/patients-table";
+import { api, HydrateClient } from "@/trpc/server";
 
-export default function PatientsPage() {
+export default async function PatientsPage() {
+  // Prefetch patients data
+  await api.patients.getAll.prefetch();
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -37,7 +40,9 @@ export default function PatientsPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Patients</h1>
         </div>
-        <PatientsTable />
+        <HydrateClient>
+          <PatientsTable />
+        </HydrateClient>
       </div>
     </>
   );
