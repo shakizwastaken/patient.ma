@@ -238,7 +238,7 @@ const CalendarMonthView = ({
           <div
             key={day}
             className={cn(
-              "text-muted-foreground mb-2 pr-2 text-right text-sm",
+              "text-muted-foreground mb-2 text-start text-sm",
               [0, 6].includes(i) && "text-muted-foreground/50",
             )}
           >
