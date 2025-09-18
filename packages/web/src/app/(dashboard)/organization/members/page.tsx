@@ -27,14 +27,21 @@ export default function OrganizationMembersPage() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Members</BreadcrumbPage>
+                <BreadcrumbPage>Team Members</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <OrganizationMembersManager />
+        <div className="flex flex-shrink-0 items-center justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Team Members
+          </h1>
+        </div>
+        <div className="min-h-0 flex-1">
+          <OrganizationMembersManager />
+        </div>
       </div>
     </>
   );

@@ -1,9 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { Calendar, LayoutDashboard, Users } from "lucide-react";
+import {
+  Calendar,
+  LayoutDashboard,
+  Users,
+  Settings,
+  UserPlus,
+} from "lucide-react";
 
-import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { OrganizationSwitcher } from "@/components/team-switcher";
 import {
@@ -11,7 +16,12 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
 
@@ -29,9 +39,21 @@ const data = {
       icon: Users,
     },
     {
-      title: "Calendrier",
+      title: "Calendar",
       url: "/calendar",
       icon: Calendar,
+    },
+  ],
+  navOrganization: [
+    {
+      title: "Team Members",
+      url: "/organization/members",
+      icon: UserPlus,
+    },
+    {
+      title: "Settings",
+      url: "/organization/settings",
+      icon: Settings,
     },
   ],
 };
@@ -44,7 +66,39 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <NavMain items={data.navMain} />
+          <SidebarGroupLabel>Main</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {data.navMain.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Organization</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {data.navOrganization.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>

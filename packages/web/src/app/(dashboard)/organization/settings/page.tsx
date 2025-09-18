@@ -27,14 +27,21 @@ export default function OrganizationSettingsPage() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Settings</BreadcrumbPage>
+                <BreadcrumbPage>Organization Settings</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <OrganizationSettingsForm />
+        <div className="flex flex-shrink-0 items-center justify-between">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Organization Settings
+          </h1>
+        </div>
+        <div className="min-h-0 flex-1">
+          <OrganizationSettingsForm />
+        </div>
       </div>
     </>
   );
