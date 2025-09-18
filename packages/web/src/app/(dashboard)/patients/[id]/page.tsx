@@ -8,15 +8,32 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { DashboardOverview } from "@/components/dashboard/dashboard-overview";
+import { PatientDetailsView } from "@/components/patients/patient-details-view";
 import { api, HydrateClient } from "@/trpc/server";
+import { notFound } from "next/navigation";
 
-export default async function DashboardPage() {
-  // Prefetch dashboard data
+interface PatientPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default async function PatientPage({ params }: PatientPageProps) {
+  const patientId = params.id;
+
+  // Prefetch patient data and their appointments
   await Promise.all([
-    api.patients.getAll.prefetch(),
-    api.appointments.getUpcoming.prefetch(),
+    api.patients.getById.prefetch({ id: patientId }),
+    api.appointments.getAll.prefetch({ patientId }),
   ]);
+
+  // Try to get the patient to check if it exists
+  try {
+    await api.patients.getById({ id: patientId });
+  } catch {
+    notFound();
+  }
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -33,19 +50,20 @@ export default async function DashboardPage() {
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Overview</BreadcrumbPage>
+                <BreadcrumbLink href="/patients">Patients</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Patient Details</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex flex-shrink-0 items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 pt-0">
         <div className="min-h-0 flex-1">
           <HydrateClient>
-            <DashboardOverview />
+            <PatientDetailsView patientId={patientId} />
           </HydrateClient>
         </div>
       </div>

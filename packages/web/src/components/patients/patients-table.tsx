@@ -11,7 +11,7 @@ import {
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { MoreHorizontal, Plus, UserPlus } from "lucide-react";
+import { MoreHorizontal, Plus, UserPlus, Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/trpc/react";
 import { authClient } from "@acme/shared/client";
+import { useRouter } from "next/navigation";
 import { CreatePatientDialog } from "./create-patient-dialog";
 import { UpdatePatientDialog } from "./update-patient-dialog";
 import { CreateAppointmentDialog } from "../calendar/create-appointment-dialog";
@@ -41,6 +42,7 @@ import { toast } from "sonner";
 import type { Patient, PatientsTableProps } from "@/types/patient";
 
 export function PatientsTable({ organizationId }: PatientsTableProps) {
+  const router = useRouter();
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
   );
@@ -164,7 +166,12 @@ export function PatientsTable({ organizationId }: PatientsTableProps) {
                   Copy patient ID
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>View details</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/patients/${patient.id}`)}
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View details
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => {
                     setSelectedPatient(patient);
