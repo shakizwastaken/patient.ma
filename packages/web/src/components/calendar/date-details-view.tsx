@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Calendar, ArrowLeft } from "lucide-react";
+import { Plus, Clock, User, Calendar, ArrowLeft, Video } from "lucide-react";
 import { api } from "@/trpc/react";
 import { CreateAppointmentDialog } from "./create-appointment-dialog";
 import { AppointmentDetailsDialog } from "./appointment-details-dialog";
@@ -26,6 +26,8 @@ type Appointment = {
   endTime: Date;
   status: string;
   type: string;
+  meetingLink?: string | null;
+  meetingId?: string | null;
   patient: {
     id: string;
     firstName: string;
@@ -230,6 +232,15 @@ export function DateDetailsView({ selectedDate }: DateDetailsViewProps) {
                         {format(new Date(appointment.endTime), "h:mm a")}
                       </span>
                     </div>
+
+                    {appointment.meetingLink && (
+                      <div className="mb-3 flex items-center gap-2 text-green-600">
+                        <Video className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                          Rendez-vous en ligne
+                        </span>
+                      </div>
+                    )}
 
                     {appointment.description && (
                       <p className="text-muted-foreground text-sm">

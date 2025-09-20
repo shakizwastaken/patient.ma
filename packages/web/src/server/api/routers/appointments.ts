@@ -27,6 +27,11 @@ async function createMeetingLinkIfNeeded(
   },
   patientEmail?: string,
 ) {
+  console.log("🔍 Checking if meeting link needed for appointment:", {
+    appointmentTypeId: appointmentData.appointmentTypeId,
+    title: appointmentData.title,
+  });
+
   try {
     // Check if online conferencing is enabled and if this appointment type requires it
     const config = await ctx.db
@@ -38,7 +43,15 @@ async function createMeetingLinkIfNeeded(
       .limit(1);
 
     const appointmentConfig = config[0];
+    console.log("📋 Appointment config:", {
+      onlineConferencingEnabled: appointmentConfig?.onlineConferencingEnabled,
+      configuredAppointmentTypeId:
+        appointmentConfig?.onlineConferencingAppointmentTypeId,
+      requestedAppointmentTypeId: appointmentData.appointmentTypeId,
+    });
+
     if (!appointmentConfig?.onlineConferencingEnabled) {
+      console.log("❌ Online conferencing not enabled");
       return { meetingLink: null, meetingId: null };
     }
 
@@ -47,8 +60,11 @@ async function createMeetingLinkIfNeeded(
       appointmentData.appointmentTypeId !==
       appointmentConfig.onlineConferencingAppointmentTypeId
     ) {
+      console.log("❌ Appointment type doesn't match configured online type");
       return { meetingLink: null, meetingId: null };
     }
+
+    console.log("✅ Creating meeting link for online appointment");
 
     // Get organization's Google integration tokens
     const org = await ctx.db
@@ -62,23 +78,43 @@ async function createMeetingLinkIfNeeded(
       .limit(1);
 
     const orgData = org[0];
-    if (!orgData?.googleIntegrationEnabled || !orgData?.googleAccessToken) {
+    if (!orgData?.googleIntegrationEnabled) {
+      console.warn("❌ Google integration not enabled for this organization");
+      return { meetingLink: null, meetingId: null };
+    }
+
+    if (!orgData?.googleAccessToken) {
       console.warn(
-        "Google integration not enabled or no access token available",
+        "❌ No Google access token available - please reconnect Google integration",
       );
       return { meetingLink: null, meetingId: null };
     }
 
-    // Create Google Calendar service
+    console.log("✅ Google integration is enabled and has access token");
+
+    // Create Google Calendar service with token refresh callback
     const calendarService = new GoogleCalendarService(
       orgData.googleAccessToken,
       orgData.googleRefreshToken,
+      async (newAccessToken: string, expiryDate?: Date) => {
+        // Update the database with the new access token
+        await ctx.db
+          .update(organization)
+          .set({
+            googleAccessToken: newAccessToken,
+            googleTokenExpiresAt: expiryDate,
+          })
+          .where(eq(organization.id, ctx.organization.id));
+
+        console.log("💾 Updated database with new Google access token");
+      },
     );
 
-    // Prepare attendee emails
+    // Prepare attendee emails (patient only - organizer will be added automatically)
     const attendeeEmails = [];
     if (patientEmail) {
       attendeeEmails.push(patientEmail);
+      console.log("👤 Adding patient as attendee:", patientEmail);
     }
 
     // Create calendar event with Meet link
@@ -90,18 +126,24 @@ async function createMeetingLinkIfNeeded(
       attendeeEmails,
     });
 
+    console.log("🎉 Meeting link created successfully:", {
+      meetingLink: meetingResult.meetingLink,
+      eventId: meetingResult.eventId,
+    });
+
     return {
       meetingLink: meetingResult.meetingLink,
       meetingId: meetingResult.eventId,
     };
   } catch (error: any) {
-    console.error("Error creating meeting link:", error);
+    console.error("❌ Error creating meeting link:", error);
 
-    // If token expired, we could handle refresh here
+    // If token expired, user needs to reconnect Google integration
     if (error.message === "GOOGLE_TOKEN_EXPIRED") {
       console.warn(
-        "Google token expired for organization",
+        "🔑 Google token expired for organization",
         ctx.organization.id,
+        "- Please reconnect Google integration in settings",
       );
     }
 
@@ -183,6 +225,10 @@ async function validateAppointmentAvailability(
 ) {
   const dayOfWeek = startTime.getDay();
 
+  console.log(
+    `Validating appointment for ${startTime.toISOString()} - ${endTime.toISOString()}, dayOfWeek: ${dayOfWeek}`,
+  );
+
   // Check organization availability for this day
   const dayAvailability = await ctx.db
     .select()
@@ -197,6 +243,9 @@ async function validateAppointmentAvailability(
     .limit(1);
 
   if (dayAvailability.length === 0) {
+    console.log(
+      `No availability found for dayOfWeek: ${dayOfWeek} (${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayOfWeek]})`,
+    );
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Le cabinet n'est pas ouvert ce jour-là",
@@ -217,6 +266,13 @@ async function validateAppointmentAvailability(
   availableEndTime.setHours(availableEndHour, availableEndMinute, 0, 0);
 
   if (startTime < availableStartTime || endTime > availableEndTime) {
+    console.log(`Time validation failed:`, {
+      requestedStart: startTime.toISOString(),
+      requestedEnd: endTime.toISOString(),
+      availableStart: availableStartTime.toISOString(),
+      availableEnd: availableEndTime.toISOString(),
+      dayAvailability: dayAvailability[0],
+    });
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: `Le rendez-vous doit être programmé entre ${dayAvailability[0].startTime} et ${dayAvailability[0].endTime}`,
@@ -284,6 +340,8 @@ export const appointmentsRouter = createTRPCRouter({
             status: appointment.status,
             type: appointment.type,
             notes: appointment.notes,
+            meetingLink: appointment.meetingLink,
+            meetingId: appointment.meetingId,
             createdAt: appointment.createdAt,
             updatedAt: appointment.updatedAt,
             patient: {
@@ -329,6 +387,8 @@ export const appointmentsRouter = createTRPCRouter({
             endTime: appointment.endTime,
             status: appointment.status,
             type: appointment.type,
+            meetingLink: appointment.meetingLink,
+            meetingId: appointment.meetingId,
             appointmentType: {
               id: organizationAppointmentType.id,
               name: organizationAppointmentType.name,
@@ -380,6 +440,8 @@ export const appointmentsRouter = createTRPCRouter({
             status: appointment.status,
             type: appointment.type,
             notes: appointment.notes,
+            meetingLink: appointment.meetingLink,
+            meetingId: appointment.meetingId,
             createdAt: appointment.createdAt,
             updatedAt: appointment.updatedAt,
             patient: {
@@ -424,6 +486,15 @@ export const appointmentsRouter = createTRPCRouter({
   create: organizationProcedure
     .input(createAppointmentSchema)
     .mutation(async ({ ctx, input }) => {
+      console.log("🚀 Starting appointment creation with input:", {
+        title: input.title,
+        startTime: input.startTime,
+        endTime: input.endTime,
+        patientId: input.patientId,
+        appointmentTypeId: input.appointmentTypeId,
+        organizationId: ctx.organization.id,
+      });
+
       try {
         // Verify that the patient belongs to the organization
         const patientExists = await ctx.db
@@ -478,9 +549,13 @@ export const appointmentsRouter = createTRPCRouter({
           });
         }
 
-        // Get patient email for meeting invitation
+        // Get patient data for meeting invitation and email
         const patientData = await ctx.db
-          .select({ email: patient.email })
+          .select({
+            email: patient.email,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+          })
           .from(patient)
           .where(eq(patient.id, input.patientId))
           .limit(1);
@@ -508,6 +583,20 @@ export const appointmentsRouter = createTRPCRouter({
             meetingId,
           })
           .returning();
+
+        // Google Calendar API handles all notifications automatically
+        if (meetingLink) {
+          console.log(
+            "📅 Online appointment created - Google Calendar invites sent automatically",
+          );
+          console.log(
+            "🎉 Both organizer and patient will receive Google Calendar invites with meeting link",
+          );
+        } else {
+          console.log(
+            "📋 Regular appointment created - no calendar invites needed",
+          );
+        }
 
         return newAppointment;
       } catch (error) {

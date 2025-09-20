@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Video } from "lucide-react";
 
 const createAppointmentSchema = z.object({
   title: z.string().min(1, "Le titre est requis"),
@@ -93,6 +93,10 @@ export function CreateAppointmentDialog({
   // Fetch appointment types for the dropdown
   const { data: appointmentTypes = [] } =
     api.appointmentTypes.getAppointmentTypes.useQuery();
+
+  // Fetch online conferencing config to show online meeting indicator
+  const { data: appointmentConfig } =
+    api.availability.getAppointmentConfig.useQuery();
 
   const utils = api.useUtils();
 
@@ -302,12 +306,25 @@ export function CreateAppointmentDialog({
                   </Select>
                   <FormMessage />
                   {field.value && form.getValues("startTime") && (
-                    <p className="text-muted-foreground text-sm">
-                      Durée:{" "}
-                      {appointmentTypes.find((t) => t.id === field.value)
-                        ?.defaultDurationMinutes || 30}{" "}
-                      minutes
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-sm">
+                        Durée:{" "}
+                        {appointmentTypes.find((t) => t.id === field.value)
+                          ?.defaultDurationMinutes || 30}{" "}
+                        minutes
+                      </p>
+                      {appointmentConfig?.onlineConferencingEnabled &&
+                        field.value ===
+                          appointmentConfig?.onlineConferencingAppointmentTypeId && (
+                          <div className="flex items-center gap-2 rounded-md bg-green-50 p-2 text-green-800">
+                            <Video className="h-4 w-4" />
+                            <span className="text-sm font-medium">
+                              Rendez-vous en ligne - Un lien Google Meet sera
+                              créé
+                            </span>
+                          </div>
+                        )}
+                    </div>
                   )}
                 </FormItem>
               )}

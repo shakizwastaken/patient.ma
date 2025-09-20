@@ -31,6 +31,8 @@ import {
   Check,
   X,
   UserX,
+  Video,
+  ExternalLink,
 } from "lucide-react";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
@@ -49,6 +51,8 @@ type Appointment = {
     color: string | null;
   } | null;
   notes?: string | null;
+  meetingLink?: string | null;
+  meetingId?: string | null;
   patient: {
     id: string;
     firstName: string;
@@ -330,6 +334,35 @@ export function AppointmentDetailsDialog({
               </div>
             </div>
           </div>
+
+          {/* Meeting Link */}
+          {appointment.meetingLink && (
+            <>
+              <Separator />
+              <div className="flex items-center gap-3">
+                <Video className="text-muted-foreground h-5 w-5" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">Lien de visioconférence</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() =>
+                        window.open(appointment.meetingLink!, "_blank")
+                      }
+                    >
+                      <ExternalLink className="mr-1 h-3 w-3" />
+                      Rejoindre
+                    </Button>
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    Google Meet - Cliquez pour rejoindre la réunion
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Description */}
           {appointment.description && (
