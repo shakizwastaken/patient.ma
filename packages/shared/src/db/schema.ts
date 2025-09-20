@@ -168,6 +168,28 @@ export const patientOrganization = pgTable("patient_organization", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const organizationAppointmentType = pgTable(
+  "organization_appointment_type",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(), // e.g., "Consultation", "Suivi", "Urgence"
+    description: text("description"),
+    defaultDurationMinutes: integer("default_duration_minutes")
+      .notNull()
+      .default(30),
+    color: text("color").default("#3b82f6"), // Hex color for calendar display
+    isActive: boolean("is_active").default(true).notNull(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+);
+
 export const appointment = pgTable("appointment", {
   id: uuid("id").defaultRandom().primaryKey(),
   title: text("title").notNull(),
@@ -176,6 +198,10 @@ export const appointment = pgTable("appointment", {
   endTime: timestamp("end_time").notNull(),
   status: text("status").default("scheduled").notNull(), // scheduled, completed, cancelled, no_show
   type: text("type").default("consultation").notNull(), // consultation, follow_up, emergency, etc.
+  appointmentTypeId: uuid("appointment_type_id").references(
+    () => organizationAppointmentType.id,
+    { onDelete: "set null" },
+  ),
   patientId: uuid("patient_id")
     .notNull()
     .references(() => patient.id, { onDelete: "cascade" }),

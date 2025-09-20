@@ -29,6 +29,11 @@ type Appointment = {
   endTime: Date;
   status: string;
   type: string;
+  appointmentType?: {
+    id: string;
+    name: string;
+    color: string | null;
+  } | null;
   patient: {
     id: string;
     firstName: string;
@@ -37,12 +42,18 @@ type Appointment = {
 };
 
 // Helper function to determine event color based on appointment type and status
-function getEventColor(type: string, status: string): CalendarEvent["color"] {
-  if (status === "cancelled" || status === "no_show") {
+function getEventColor(appointment: Appointment): CalendarEvent["color"] {
+  if (appointment.status === "cancelled" || appointment.status === "no_show") {
     return "default"; // Gray for cancelled/no-show
   }
 
-  switch (type) {
+  // Use custom appointment type color if available
+  if (appointment.appointmentType?.color) {
+    return appointment.appointmentType.color as CalendarEvent["color"];
+  }
+
+  // Fallback to default type colors
+  switch (appointment.type) {
     case "emergency":
       return "pink"; // Red for emergency
     case "consultation":
@@ -107,7 +118,7 @@ export function CalendarView() {
       start: new Date(appointment.startTime),
       end: new Date(appointment.endTime),
       title: `${appointment.patient.firstName} ${appointment.patient.lastName} - ${appointment.title}`,
-      color: getEventColor(appointment.type, appointment.status),
+      color: getEventColor(appointment),
     }));
   }, [appointments]);
 

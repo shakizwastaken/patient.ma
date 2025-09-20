@@ -7,6 +7,7 @@ import {
   patientOrganization,
   organizationAvailability,
   organizationScheduleOverride,
+  organizationAppointmentType,
 } from "@acme/shared/server";
 
 import { createTRPCRouter, organizationProcedure } from "@/server/api/trpc";
@@ -21,6 +22,10 @@ const createAppointmentSchema = z
     type: z
       .enum(["consultation", "follow_up", "emergency", "checkup", "procedure"])
       .default("consultation"),
+    appointmentTypeId: z
+      .string()
+      .uuid("Invalid appointment type ID")
+      .optional(),
     patientId: z.string().uuid("Invalid patient ID"),
     notes: z.string().optional(),
   })
@@ -42,6 +47,10 @@ const updateAppointmentSchema = z
     endTime: z.date().optional(),
     type: z
       .enum(["consultation", "follow_up", "emergency", "checkup", "procedure"])
+      .optional(),
+    appointmentTypeId: z
+      .string()
+      .uuid("Invalid appointment type ID")
       .optional(),
     status: z
       .enum(["scheduled", "completed", "cancelled", "no_show"])
@@ -222,6 +231,11 @@ export const appointmentsRouter = createTRPCRouter({
             endTime: appointment.endTime,
             status: appointment.status,
             type: appointment.type,
+            appointmentType: {
+              id: organizationAppointmentType.id,
+              name: organizationAppointmentType.name,
+              color: organizationAppointmentType.color,
+            },
             patient: {
               id: patient.id,
               firstName: patient.firstName,
@@ -230,6 +244,10 @@ export const appointmentsRouter = createTRPCRouter({
           })
           .from(appointment)
           .innerJoin(patient, eq(appointment.patientId, patient.id))
+          .leftJoin(
+            organizationAppointmentType,
+            eq(appointment.appointmentTypeId, organizationAppointmentType.id),
+          )
           .where(
             and(
               eq(appointment.organizationId, ctx.organization.id),

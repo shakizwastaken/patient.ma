@@ -43,6 +43,11 @@ type Appointment = {
   endTime: Date;
   status: string;
   type: string;
+  appointmentType?: {
+    id: string;
+    name: string;
+    color: string | null;
+  } | null;
   notes?: string | null;
   patient: {
     id: string;
@@ -138,8 +143,22 @@ export function AppointmentDetailsDialog({
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
+  const getTypeColor = (appointment: Appointment) => {
+    // Use custom appointment type color if available
+    if (appointment.appointmentType?.color) {
+      // Convert hex color to a lighter background color
+      const hex = appointment.appointmentType.color;
+      const rgb = parseInt(hex.slice(1), 16);
+      const r = (rgb >> 16) & 0xff;
+      const g = (rgb >> 8) & 0xff;
+      const b = (rgb >> 0) & 0xff;
+      const bgColor = `rgba(${r}, ${g}, ${b}, 0.1)`;
+      const textColor = `rgb(${r}, ${g}, ${b})`;
+      return `text-[${textColor}]`;
+    }
+
+    // Fallback to default type colors
+    switch (appointment.type) {
       case "consultation":
         return "bg-purple-100 text-purple-800";
       case "follow_up":
@@ -256,8 +275,19 @@ export function AppointmentDetailsDialog({
             <Badge className={getStatusColor(appointment.status)}>
               {appointment.status.replace("_", " ")}
             </Badge>
-            <Badge className={getTypeColor(appointment.type)}>
-              {appointment.type.replace("_", " ")}
+            <Badge
+              className={getTypeColor(appointment)}
+              style={
+                appointment.appointmentType?.color
+                  ? {
+                      backgroundColor: `${appointment.appointmentType.color}20`,
+                      color: appointment.appointmentType.color,
+                    }
+                  : undefined
+              }
+            >
+              {appointment.appointmentType?.name ||
+                appointment.type.replace("_", " ")}
             </Badge>
           </div>
 

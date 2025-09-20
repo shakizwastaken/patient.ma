@@ -8,6 +8,7 @@ import { stripe } from "@better-auth/stripe";
 import Stripe from "stripe";
 import { db } from "../db";
 import { emailService } from "../lib/email";
+import { organizationAppointmentType } from "../db/schema";
 
 const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-08-27.basil",
@@ -72,6 +73,84 @@ export const auth = betterAuth({
             });
           } catch (error) {
             console.error("Failed to send welcome email:", error);
+          }
+        },
+      },
+    },
+    organization: {
+      create: {
+        after: async (organization: any) => {
+          // Create default appointment types for new organization
+          try {
+            const DEFAULT_APPOINTMENT_TYPES = [
+              {
+                name: "Consultation initiale",
+                description:
+                  "Première rencontre avec un nouveau patient, collecte des antécédents médicaux, diagnostic préliminaire.",
+                defaultDurationMinutes: 45,
+                color: "#3b82f6",
+                organizationId: organization.id,
+              },
+              {
+                name: "Consultation de suivi",
+                description:
+                  "Contrôle après un traitement ou une première consultation.",
+                defaultDurationMinutes: 30,
+                color: "#10b981",
+                organizationId: organization.id,
+              },
+              {
+                name: "Consultation de routine",
+                description:
+                  "Examens de santé réguliers, dépistage, vaccination.",
+                defaultDurationMinutes: 30,
+                color: "#8b5cf6",
+                organizationId: organization.id,
+              },
+              {
+                name: "Consultation spécialisée",
+                description:
+                  "Rendez-vous avec un spécialiste (cardiologue, dermatologue, etc.).",
+                defaultDurationMinutes: 60,
+                color: "#f59e0b",
+                organizationId: organization.id,
+              },
+              {
+                name: "Urgence",
+                description: "Consultation rapide pour un problème aigu.",
+                defaultDurationMinutes: 20,
+                color: "#ef4444",
+                organizationId: organization.id,
+              },
+              {
+                name: "Téléconsultation",
+                description: "Rendez-vous vidéo ou téléphone.",
+                defaultDurationMinutes: 30,
+                color: "#06b6d4",
+                organizationId: organization.id,
+              },
+              {
+                name: "Bilan / Examen complémentaire",
+                description: "Analyses, imagerie médicale, tests spécifiques.",
+                defaultDurationMinutes: 60,
+                color: "#84cc16",
+                organizationId: organization.id,
+              },
+              {
+                name: "Consultation administrative",
+                description:
+                  "Renouvellement d'ordonnance, certificat médical, résultats d'analyses.",
+                defaultDurationMinutes: 15,
+                color: "#6b7280",
+                organizationId: organization.id,
+              },
+            ];
+
+            await db
+              .insert(organizationAppointmentType)
+              .values(DEFAULT_APPOINTMENT_TYPES);
+          } catch (error) {
+            console.error("Failed to create default appointment types:", error);
           }
         },
       },

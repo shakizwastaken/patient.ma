@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle } from "lucide-react";
+import { AppointmentTypesManager } from "./appointment-types-manager";
 
 export function OrganizationSettingsForm() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
@@ -195,6 +196,21 @@ export function OrganizationSettingsForm() {
           </Button>
         </form>
       </div>
+
+      <Separator />
+
+      {/* Appointment Types Management */}
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium">Types de rendez-vous</h3>
+          <p className="text-muted-foreground">
+            Gérez les types de rendez-vous et leurs durées par défaut
+          </p>
+        </div>
+        <AppointmentTypesManager />
+      </div>
+
+      <Separator />
 
       {/* Danger Zone */}
       <Card className="border-destructive/20">

@@ -45,6 +45,7 @@ const createAppointmentSchema = z.object({
     "checkup",
     "procedure",
   ]),
+  appointmentTypeId: z.string().uuid().optional(),
   patientId: z.string().min(1, "Le patient est requis"),
   notes: z.string().optional(),
 });
@@ -55,6 +56,7 @@ type CreateAppointmentFormValues = {
   startTime: string;
   endTime: string;
   type: "consultation" | "follow_up" | "emergency" | "checkup" | "procedure";
+  appointmentTypeId?: string;
   patientId: string;
   notes?: string;
 };
@@ -81,6 +83,7 @@ export function CreateAppointmentDialog({
       startTime: "",
       endTime: "",
       type: "consultation",
+      appointmentTypeId: "",
       patientId: "",
       notes: "",
     },
@@ -89,7 +92,35 @@ export function CreateAppointmentDialog({
   // Fetch patients for the dropdown
   const { data: patients = [] } = api.patients.getAll.useQuery();
 
+  // Fetch appointment types for the dropdown
+  const { data: appointmentTypes = [] } =
+    api.appointmentTypes.getAppointmentTypes.useQuery();
+
   const utils = api.useUtils();
+
+  // Handle appointment type selection and auto-set duration
+  const handleAppointmentTypeChange = (appointmentTypeId: string) => {
+    const selectedType = appointmentTypes.find(
+      (type) => type.id === appointmentTypeId,
+    );
+    if (selectedType) {
+      form.setValue("appointmentTypeId", appointmentTypeId);
+
+      // Auto-set duration based on selected type
+      const startTime = form.getValues("startTime");
+      if (startTime) {
+        const start = new Date(startTime);
+        const end = new Date(start);
+        end.setMinutes(end.getMinutes() + selectedType.defaultDurationMinutes);
+
+        const dateStr = start.toISOString().split("T")[0];
+        form.setValue(
+          "endTime",
+          `${dateStr}T${end.toTimeString().slice(0, 5)}`,
+        );
+      }
+    }
+  };
 
   const createAppointment = api.appointments.create.useMutation({
     onSuccess: async () => {
@@ -170,7 +201,8 @@ export function CreateAppointmentDialog({
         <DialogHeader>
           <DialogTitle>Programmer un nouveau rendez-vous</DialogTitle>
           <DialogDescription>
-            Créer un nouveau rendez-vous pour le {selectedDate.toLocaleDateString()}.
+            Créer un nouveau rendez-vous pour le{" "}
+            {selectedDate.toLocaleDateString()}.
           </DialogDescription>
         </DialogHeader>
 
@@ -249,22 +281,38 @@ export function CreateAppointmentDialog({
 
             <FormField
               control={form.control}
-              name="type"
+              name="appointmentTypeId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Type de rendez-vous</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={handleAppointmentTypeChange}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Sélectionner un type de rendez-vous" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="consultation">Consultation</SelectItem>
-                      <SelectItem value="follow_up">Suivi</SelectItem>
-                      <SelectItem value="checkup">Contrôle</SelectItem>
-                      <SelectItem value="procedure">Procédure</SelectItem>
-                      <SelectItem value="emergency">Urgence</SelectItem>
+                      {appointmentTypes
+                        .filter((type) => type.isActive)
+                        .map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            <div className="flex items-center">
+                              <div
+                                className="mr-2 h-3 w-3 rounded"
+                                style={{
+                                  backgroundColor: type.color || "#3b82f6",
+                                }}
+                              />
+                              <span>{type.name}</span>
+                              <span className="text-muted-foreground ml-2 text-xs">
+                                ({type.defaultDurationMinutes} min)
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
