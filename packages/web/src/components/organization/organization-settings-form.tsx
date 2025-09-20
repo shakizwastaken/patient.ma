@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { authClient } from "@acme/shared/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,9 +18,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { AppointmentTypesManager } from "./appointment-types-manager";
+import { OnlineConferencingSettings } from "./online-conferencing-settings";
 
 export function OrganizationSettingsForm() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
+  const searchParams = useSearchParams();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -42,6 +45,32 @@ export function OrganizationSettingsForm() {
       });
     }
   }, [activeOrganization]);
+
+  // Handle Google integration success/error messages
+  useEffect(() => {
+    const successParam = searchParams.get("success");
+    const errorParam = searchParams.get("error");
+
+    if (successParam === "google_integrated") {
+      setSuccess("Google Calendar intégré avec succès !");
+      setError("");
+      // Clear the URL parameters
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (errorParam) {
+      setError(
+        errorParam === "google_auth_failed"
+          ? "Échec de l'authentification Google"
+          : errorParam === "missing_parameters"
+            ? "Paramètres manquants dans la réponse Google"
+            : errorParam === "integration_failed"
+              ? "Échec de l'intégration Google"
+              : "Erreur inconnue lors de l'intégration Google",
+      );
+      setSuccess("");
+      // Clear the URL parameters
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [searchParams]);
 
   const handleUpdateOrganization = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,6 +224,13 @@ export function OrganizationSettingsForm() {
             {isUpdating ? "Mise à jour..." : "Mettre à jour le cabinet"}
           </Button>
         </form>
+      </div>
+
+      <Separator />
+
+      {/* Online Conferencing Settings */}
+      <div className="space-y-6">
+        <OnlineConferencingSettings />
       </div>
 
       <Separator />

@@ -3,6 +3,7 @@ import { patientsRouter } from "@/server/api/routers/patients";
 import { appointmentsRouter } from "@/server/api/routers/appointments";
 import { availabilityRouter } from "@/server/api/routers/availability";
 import { appointmentTypesRouter } from "@/server/api/routers/appointment-types";
+import { googleIntegrationRouter } from "@/server/api/routers/google-integration";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   appointments: appointmentsRouter,
   availability: availabilityRouter,
   appointmentTypes: appointmentTypesRouter,
+  googleIntegration: googleIntegrationRouter,
 });
 
 // export type definition of API

@@ -82,6 +82,14 @@ export const organization = pgTable("organization", {
   timezone: text("timezone").default("Africa/Casablanca").notNull(), // Default to Casablanca timezone
   createdAt: timestamp("created_at").notNull(),
   metadata: text("metadata"),
+  // Google Calendar Integration
+  googleAccessToken: text("google_access_token"),
+  googleRefreshToken: text("google_refresh_token"),
+  googleTokenExpiresAt: timestamp("google_token_expires_at"),
+  googleCalendarId: text("google_calendar_id"),
+  googleIntegrationEnabled: boolean("google_integration_enabled").default(
+    false,
+  ),
 });
 
 export const member = pgTable("member", {
@@ -212,6 +220,9 @@ export const appointment = pgTable("appointment", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   notes: text("notes"),
+  // Google Meet integration
+  meetingLink: text("meeting_link"),
+  meetingId: text("meeting_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -276,6 +287,15 @@ export const organizationAppointmentConfig = pgTable(
       .default(true)
       .notNull(),
     maxAppointmentsPerDay: integer("max_appointments_per_day"), // Optional: limit daily appointments
+    // Online conferencing settings
+    onlineConferencingEnabled: boolean("online_conferencing_enabled")
+      .default(false)
+      .notNull(),
+    onlineConferencingAppointmentTypeId: uuid(
+      "online_conferencing_appointment_type_id",
+    ).references(() => organizationAppointmentType.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()

@@ -58,6 +58,9 @@ const updateAppointmentConfigSchema = z.object({
   advanceBookingDays: z.number().min(1).max(365).default(30),
   sameDayBookingAllowed: z.boolean().default(true),
   maxAppointmentsPerDay: z.number().min(1).optional(),
+  // Online conferencing settings
+  onlineConferencingEnabled: z.boolean().default(false),
+  onlineConferencingAppointmentTypeId: z.string().uuid().optional().nullable(),
 });
 
 export const availabilityRouter = createTRPCRouter({
@@ -70,8 +73,9 @@ export const availabilityRouter = createTRPCRouter({
       .where(eq(organization.id, ctx.organization.id))
       .limit(1);
 
-    const organizationTimezone = org[0]?.timezone || 
-      (org[0] as any)?.metadata?.timezone || 
+    const organizationTimezone =
+      org[0]?.timezone ||
+      (org[0] as any)?.metadata?.timezone ||
       "Africa/Casablanca";
 
     const availability = await ctx.db
@@ -110,9 +114,10 @@ export const availabilityRouter = createTRPCRouter({
         .where(eq(organization.id, ctx.organization.id))
         .limit(1);
 
-      const organizationTimezone = org[0]?.timezone || 
-      (org[0] as any)?.metadata?.timezone || 
-      "Africa/Casablanca";
+      const organizationTimezone =
+        org[0]?.timezone ||
+        (org[0] as any)?.metadata?.timezone ||
+        "Africa/Casablanca";
 
       // Convert times from organization timezone to UTC for storage
       const { startTimeUtc, endTimeUtc } = convertAvailabilityToUTC(
@@ -265,6 +270,8 @@ export const availabilityRouter = createTRPCRouter({
         bufferTimeMinutes: 0,
         advanceBookingDays: 30,
         sameDayBookingAllowed: true,
+        onlineConferencingEnabled: false,
+        onlineConferencingAppointmentTypeId: null,
       };
 
       await ctx.db.insert(organizationAppointmentConfig).values(defaultConfig);
@@ -304,6 +311,56 @@ export const availabilityRouter = createTRPCRouter({
       return {
         success: true,
         message: "Configuration des rendez-vous mise à jour avec succès",
+      };
+    }),
+
+  // Update online conferencing settings
+  updateOnlineConferencingSettings: organizationProcedure
+    .input(
+      z.object({
+        onlineConferencingEnabled: z.boolean(),
+        onlineConferencingAppointmentTypeId: z
+          .string()
+          .uuid()
+          .optional()
+          .nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db
+        .select()
+        .from(organizationAppointmentConfig)
+        .where(
+          eq(organizationAppointmentConfig.organizationId, ctx.organization.id),
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        await ctx.db
+          .update(organizationAppointmentConfig)
+          .set({
+            onlineConferencingEnabled: input.onlineConferencingEnabled,
+            onlineConferencingAppointmentTypeId:
+              input.onlineConferencingAppointmentTypeId,
+            updatedAt: new Date(),
+          })
+          .where(eq(organizationAppointmentConfig.id, existing[0]!.id));
+      } else {
+        await ctx.db.insert(organizationAppointmentConfig).values({
+          organizationId: ctx.organization.id,
+          slotDurationMinutes: 30,
+          bufferTimeMinutes: 0,
+          advanceBookingDays: 30,
+          sameDayBookingAllowed: true,
+          onlineConferencingEnabled: input.onlineConferencingEnabled,
+          onlineConferencingAppointmentTypeId:
+            input.onlineConferencingAppointmentTypeId,
+        });
+      }
+
+      return {
+        success: true,
+        message: "Paramètres de visioconférence mis à jour avec succès",
       };
     }),
 

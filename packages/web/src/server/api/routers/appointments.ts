@@ -8,9 +8,107 @@ import {
   organizationAvailability,
   organizationScheduleOverride,
   organizationAppointmentType,
+  organization,
+  organizationAppointmentConfig,
 } from "@acme/shared/server";
 
 import { createTRPCRouter, organizationProcedure } from "@/server/api/trpc";
+import { GoogleCalendarService } from "@acme/shared/server";
+
+// Helper function to create Google Meet link if needed
+async function createMeetingLinkIfNeeded(
+  ctx: any,
+  appointmentData: {
+    title: string;
+    description?: string;
+    startTime: Date;
+    endTime: Date;
+    appointmentTypeId?: string;
+  },
+  patientEmail?: string,
+) {
+  try {
+    // Check if online conferencing is enabled and if this appointment type requires it
+    const config = await ctx.db
+      .select()
+      .from(organizationAppointmentConfig)
+      .where(
+        eq(organizationAppointmentConfig.organizationId, ctx.organization.id),
+      )
+      .limit(1);
+
+    const appointmentConfig = config[0];
+    if (!appointmentConfig?.onlineConferencingEnabled) {
+      return { meetingLink: null, meetingId: null };
+    }
+
+    // Check if this appointment type is the one configured for online conferencing
+    if (
+      appointmentData.appointmentTypeId !==
+      appointmentConfig.onlineConferencingAppointmentTypeId
+    ) {
+      return { meetingLink: null, meetingId: null };
+    }
+
+    // Get organization's Google integration tokens
+    const org = await ctx.db
+      .select({
+        googleAccessToken: organization.googleAccessToken,
+        googleRefreshToken: organization.googleRefreshToken,
+        googleIntegrationEnabled: organization.googleIntegrationEnabled,
+      })
+      .from(organization)
+      .where(eq(organization.id, ctx.organization.id))
+      .limit(1);
+
+    const orgData = org[0];
+    if (!orgData?.googleIntegrationEnabled || !orgData?.googleAccessToken) {
+      console.warn(
+        "Google integration not enabled or no access token available",
+      );
+      return { meetingLink: null, meetingId: null };
+    }
+
+    // Create Google Calendar service
+    const calendarService = new GoogleCalendarService(
+      orgData.googleAccessToken,
+      orgData.googleRefreshToken,
+    );
+
+    // Prepare attendee emails
+    const attendeeEmails = [];
+    if (patientEmail) {
+      attendeeEmails.push(patientEmail);
+    }
+
+    // Create calendar event with Meet link
+    const meetingResult = await calendarService.createMeetingEvent({
+      summary: appointmentData.title,
+      description: appointmentData.description,
+      startTime: appointmentData.startTime.toISOString(),
+      endTime: appointmentData.endTime.toISOString(),
+      attendeeEmails,
+    });
+
+    return {
+      meetingLink: meetingResult.meetingLink,
+      meetingId: meetingResult.eventId,
+    };
+  } catch (error: any) {
+    console.error("Error creating meeting link:", error);
+
+    // If token expired, we could handle refresh here
+    if (error.message === "GOOGLE_TOKEN_EXPIRED") {
+      console.warn(
+        "Google token expired for organization",
+        ctx.organization.id,
+      );
+    }
+
+    // Don't fail the appointment creation if meeting link creation fails
+    return { meetingLink: null, meetingId: null };
+  }
+}
 
 // Input validation schemas
 const createAppointmentSchema = z
@@ -380,12 +478,34 @@ export const appointmentsRouter = createTRPCRouter({
           });
         }
 
+        // Get patient email for meeting invitation
+        const patientData = await ctx.db
+          .select({ email: patient.email })
+          .from(patient)
+          .where(eq(patient.id, input.patientId))
+          .limit(1);
+
+        // Create meeting link if needed
+        const { meetingLink, meetingId } = await createMeetingLinkIfNeeded(
+          ctx,
+          {
+            title: input.title,
+            description: input.description,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            appointmentTypeId: input.appointmentTypeId,
+          },
+          patientData[0]?.email || undefined,
+        );
+
         const [newAppointment] = await ctx.db
           .insert(appointment)
           .values({
             ...input,
             organizationId: ctx.organization.id,
             createdById: ctx.user.id,
+            meetingLink,
+            meetingId,
           })
           .returning();
 

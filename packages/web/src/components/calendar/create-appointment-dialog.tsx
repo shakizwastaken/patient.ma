@@ -32,12 +32,12 @@ import {
 } from "@/components/ui/select";
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
 const createAppointmentSchema = z.object({
   title: z.string().min(1, "Le titre est requis"),
   description: z.string().optional(),
   startTime: z.string().min(1, "L'heure de début est requise"),
-  endTime: z.string().min(1, "L'heure de fin est requise"),
   type: z.enum([
     "consultation",
     "follow_up",
@@ -54,7 +54,6 @@ type CreateAppointmentFormValues = {
   title: string;
   description?: string;
   startTime: string;
-  endTime: string;
   type: "consultation" | "follow_up" | "emergency" | "checkup" | "procedure";
   appointmentTypeId?: string;
   patientId: string;
@@ -81,7 +80,6 @@ export function CreateAppointmentDialog({
       title: "",
       description: "",
       startTime: "",
-      endTime: "",
       type: "consultation",
       appointmentTypeId: "",
       patientId: "",
@@ -98,32 +96,14 @@ export function CreateAppointmentDialog({
 
   const utils = api.useUtils();
 
-  // Handle appointment type selection and auto-set duration
+  // Handle appointment type selection
   const handleAppointmentTypeChange = (appointmentTypeId: string) => {
-    const selectedType = appointmentTypes.find(
-      (type) => type.id === appointmentTypeId,
-    );
-    if (selectedType) {
-      form.setValue("appointmentTypeId", appointmentTypeId);
-
-      // Auto-set duration based on selected type
-      const startTime = form.getValues("startTime");
-      if (startTime) {
-        const start = new Date(startTime);
-        const end = new Date(start);
-        end.setMinutes(end.getMinutes() + selectedType.defaultDurationMinutes);
-
-        const dateStr = start.toISOString().split("T")[0];
-        form.setValue(
-          "endTime",
-          `${dateStr}T${end.toTimeString().slice(0, 5)}`,
-        );
-      }
-    }
+    form.setValue("appointmentTypeId", appointmentTypeId);
   };
 
   const createAppointment = api.appointments.create.useMutation({
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      console.log("Appointment created successfully:", data);
       // Invalidate all appointment-related queries to refresh the UI
       await Promise.all([
         utils.appointments.getAll.invalidate(),
@@ -149,16 +129,10 @@ export function CreateAppointmentDialog({
       const currentTime = new Date();
       const startTime = new Date(selectedDate);
       startTime.setHours(currentTime.getHours() + 1, 0, 0, 0);
-      const endTime = new Date(startTime);
-      endTime.setHours(startTime.getHours() + 1);
 
       form.setValue(
         "startTime",
         `${dateStr}T${startTime.toTimeString().slice(0, 5)}`,
-      );
-      form.setValue(
-        "endTime",
-        `${dateStr}T${endTime.toTimeString().slice(0, 5)}`,
       );
 
       if (preSelectedPatientId) {
@@ -168,13 +142,38 @@ export function CreateAppointmentDialog({
   }, [open, selectedDate, preSelectedPatientId, form]);
 
   function onSubmit(values: CreateAppointmentFormValues) {
+    // Prevent multiple submissions
+    if (createAppointment.isPending) {
+      return;
+    }
+
     // Manual validation
     try {
       createAppointmentSchema.parse(values);
 
       // Convert string times to Date objects
       const startTime = new Date(values.startTime);
-      const endTime = new Date(values.endTime);
+
+      // Calculate end time based on appointment type duration
+      let durationMinutes = 30; // Default duration
+      if (values.appointmentTypeId) {
+        const selectedType = appointmentTypes.find(
+          (type) => type.id === values.appointmentTypeId,
+        );
+        if (selectedType) {
+          durationMinutes = selectedType.defaultDurationMinutes;
+        }
+      }
+
+      const endTime = new Date(startTime);
+      endTime.setMinutes(endTime.getMinutes() + durationMinutes);
+
+      console.log("Submitting appointment:", {
+        ...values,
+        startTime,
+        endTime,
+        durationMinutes,
+      });
 
       createAppointment.mutate({
         ...values,
@@ -182,6 +181,7 @@ export function CreateAppointmentDialog({
         endTime,
       });
     } catch (error) {
+      console.error("Form validation error:", error);
       if (error instanceof z.ZodError) {
         error.errors.forEach((err) => {
           if (err.path[0]) {
@@ -250,34 +250,19 @@ export function CreateAppointmentDialog({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Heure de début *</FormLabel>
-                    <FormControl>
-                      <Input type="datetime-local" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Heure de fin *</FormLabel>
-                    <FormControl>
-                      <Input type="datetime-local" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="startTime"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Heure de début *</FormLabel>
+                  <FormControl>
+                    <Input type="datetime-local" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -316,6 +301,14 @@ export function CreateAppointmentDialog({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                  {field.value && form.getValues("startTime") && (
+                    <p className="text-muted-foreground text-sm">
+                      Durée:{" "}
+                      {appointmentTypes.find((t) => t.id === field.value)
+                        ?.defaultDurationMinutes || 30}{" "}
+                      minutes
+                    </p>
+                  )}
                 </FormItem>
               )}
             />
@@ -364,6 +357,9 @@ export function CreateAppointmentDialog({
                 Annuler
               </Button>
               <Button type="submit" disabled={createAppointment.isPending}>
+                {createAppointment.isPending && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 {createAppointment.isPending
                   ? "Création..."
                   : "Créer le rendez-vous"}
