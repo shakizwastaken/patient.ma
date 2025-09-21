@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import { db } from "@acme/shared/server";
-import { organization, appointment } from "@acme/shared/server";
+import {
+  organization,
+  appointment,
+  organizationAppointmentConfig,
+  patient,
+} from "@acme/shared/server";
 import { eq } from "drizzle-orm";
+import { GoogleCalendarService } from "@acme/shared/server";
 
 export async function POST(
   req: NextRequest,
@@ -161,6 +167,118 @@ export async function POST(
   }
 }
 
+// Helper function to create meeting link after payment confirmation
+async function createMeetingLinkForPaidAppointment(
+  appointmentId: string,
+  organizationId: string,
+) {
+  try {
+    // Get appointment details
+    const [appointmentDetails] = await db
+      .select()
+      .from(appointment)
+      .where(eq(appointment.id, appointmentId))
+      .limit(1);
+
+    if (!appointmentDetails) {
+      console.error(`Appointment ${appointmentId} not found`);
+      return;
+    }
+
+    // Get patient details
+    const [patientDetails] = await db
+      .select()
+      .from(patient)
+      .where(eq(patient.id, appointmentDetails.patientId))
+      .limit(1);
+
+    if (!patientDetails) {
+      console.error(`Patient for appointment ${appointmentId} not found`);
+      return;
+    }
+
+    // Get organization details
+    const [org] = await db
+      .select()
+      .from(organization)
+      .where(eq(organization.id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      console.error(`Organization ${organizationId} not found`);
+      return;
+    }
+
+    // Check if online conferencing is enabled
+    const [config] = await db
+      .select()
+      .from(organizationAppointmentConfig)
+      .where(eq(organizationAppointmentConfig.organizationId, organizationId))
+      .limit(1);
+
+    if (
+      !config?.onlineConferencingEnabled ||
+      appointmentDetails.appointmentTypeId !==
+        config.onlineConferencingAppointmentTypeId
+    ) {
+      console.log(
+        "Online conferencing not enabled or not required for this appointment type",
+      );
+      return;
+    }
+
+    if (!org.googleIntegrationEnabled || !org.googleAccessToken) {
+      console.log("Google integration not enabled for organization");
+      return;
+    }
+
+    // Create Google Calendar service
+    const calendarService = new GoogleCalendarService(
+      org.googleAccessToken!,
+      org.googleRefreshToken || undefined,
+      async (newAccessToken: string, expiryDate?: Date) => {
+        await db
+          .update(organization)
+          .set({
+            googleAccessToken: newAccessToken,
+            googleTokenExpiresAt: expiryDate,
+          })
+          .where(eq(organization.id, organizationId));
+      },
+    );
+
+    // Create the meeting event
+    const meetingResult = await calendarService.createMeetingEvent({
+      summary: appointmentDetails.title,
+      description: appointmentDetails.description || undefined,
+      startTime: appointmentDetails.startTime.toISOString(),
+      endTime: appointmentDetails.endTime.toISOString(),
+      attendeeEmails: [patientDetails.email!],
+    });
+
+    // Update appointment with meeting details
+    await db
+      .update(appointment)
+      .set({
+        meetingLink: meetingResult.meetingLink,
+        meetingId: meetingResult.eventId || null, // Use eventId instead of meetingId
+        updatedAt: new Date(),
+      })
+      .where(eq(appointment.id, appointmentId));
+
+    console.log(
+      `✅ Meeting link created for paid appointment ${appointmentId}: ${meetingResult.meetingLink}`,
+    );
+    console.log(
+      `📧 Google Calendar invitation sent to: ${patientDetails.email}`,
+    );
+
+    return meetingResult;
+  } catch (error) {
+    console.error("Error creating meeting link for paid appointment:", error);
+  }
+}
+
 // Handle successful checkout session (one-time payments)
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -195,6 +313,9 @@ async function handleCheckoutSessionCompleted(
     console.log(
       `Appointment ${appointmentId} confirmed after payment for org: ${organizationId}`,
     );
+
+    // Create meeting link NOW that payment is confirmed
+    await createMeetingLinkForPaidAppointment(appointmentId, organizationId);
 
     // TODO: Send confirmation email to patient
     // TODO: Send notification to organization
@@ -236,6 +357,9 @@ async function handlePaymentIntentSucceeded(
     console.log(
       `Appointment ${appointmentId} confirmed after payment intent succeeded for org: ${organizationId}`,
     );
+
+    // Create meeting link NOW that payment is confirmed
+    await createMeetingLinkForPaidAppointment(appointmentId, organizationId);
   } catch (error) {
     console.error("Error handling payment intent succeeded:", error);
   }

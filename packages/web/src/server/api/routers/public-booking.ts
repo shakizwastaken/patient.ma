@@ -737,46 +737,8 @@ export const publicBookingRouter = createTRPCRouter({
       // Create appointment title
       const appointmentTitle = `${appointmentType[0].name} - ${input.patientInfo.firstName} ${input.patientInfo.lastName}`;
 
-      // Create meeting link if needed
-      let meetingData: {
-        meetingLink: string | null;
-        meetingId: string | null;
-      } = { meetingLink: null, meetingId: null };
-      try {
-        console.log("🎥 Attempting to create Google Meet link...");
-        meetingData = await createMeetingLinkIfNeeded(
-          ctx,
-          org[0],
-          {
-            title: appointmentTitle,
-            description: input.notes,
-            startTime: input.startTime,
-            endTime: input.endTime,
-            appointmentTypeId: input.appointmentTypeId,
-          },
-          input.patientInfo.email,
-        );
-
-        if (meetingData.meetingLink) {
-          console.log("✅ Google Meet link created successfully");
-          console.log(
-            "📧 Google Calendar invitation should be sent automatically to:",
-            input.patientInfo.email,
-          );
-        } else {
-          console.log(
-            "ℹ️ No Google Meet link created (not an online appointment or Google not configured)",
-          );
-        }
-      } catch (meetingError) {
-        console.error("❌ Failed to create Google Meet link:", meetingError);
-        console.log(
-          "📧 Will still send confirmation email without meeting link",
-        );
-        meetingData = { meetingLink: null, meetingId: null };
-      }
-
-      // Check if this appointment type requires payment
+      // Check if this appointment type requires payment FIRST
+      // We'll create meeting links only after payment is confirmed for paid appointments
       if (appointmentType[0].requiresPayment) {
         // For paid appointments, create appointment in "scheduled" status
         // and return Stripe checkout URL
@@ -792,8 +754,9 @@ export const publicBookingRouter = createTRPCRouter({
             organizationId: org[0].id,
             status: "scheduled", // Will be confirmed after payment
             paymentStatus: "pending",
-            meetingLink: meetingData.meetingLink,
-            meetingId: meetingData.meetingId,
+            // DON'T create meeting links for paid appointments until payment is confirmed
+            meetingLink: null,
+            meetingId: null,
           })
           .returning({ id: appointment.id });
 
@@ -838,7 +801,45 @@ export const publicBookingRouter = createTRPCRouter({
         };
       }
 
-      // For free appointments, create and confirm immediately
+      // For free appointments, create meeting link and confirm immediately
+      let meetingData: {
+        meetingLink: string | null;
+        meetingId: string | null;
+      } = { meetingLink: null, meetingId: null };
+
+      try {
+        console.log("🎥 Creating Google Meet link for free appointment...");
+        meetingData = await createMeetingLinkIfNeeded(
+          ctx,
+          org[0],
+          {
+            title: appointmentTitle,
+            description: input.notes,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            appointmentTypeId: input.appointmentTypeId,
+          },
+          input.patientInfo.email,
+        );
+
+        if (meetingData.meetingLink) {
+          console.log(
+            "✅ Google Meet link created successfully for free appointment",
+          );
+          console.log(
+            "📧 Google Calendar invitation sent to:",
+            input.patientInfo.email,
+          );
+        } else {
+          console.log(
+            "ℹ️ No Google Meet link created (not an online appointment or Google not configured)",
+          );
+        }
+      } catch (meetingError) {
+        console.error("❌ Failed to create Google Meet link:", meetingError);
+        console.log("📧 Will still create appointment without meeting link");
+        meetingData = { meetingLink: null, meetingId: null };
+      }
       const newAppointment = await ctx.db
         .insert(appointment)
         .values({
