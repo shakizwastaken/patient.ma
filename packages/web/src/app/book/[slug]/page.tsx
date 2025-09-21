@@ -262,8 +262,21 @@ export default function PublicBookingPage() {
             </div>
             <Alert>
               <AlertDescription>
-                Un e-mail de confirmation a été envoyé à{" "}
-                {form.getValues("email")} avec tous les détails.
+                {meetingLink ? (
+                  <>
+                    Une invitation Google Calendar et un e-mail de confirmation
+                    ont été envoyés à {form.getValues("email")}. Vérifiez
+                    également votre dossier spam si vous ne recevez pas les
+                    notifications.
+                  </>
+                ) : (
+                  <>
+                    Un e-mail de confirmation a été envoyé à{" "}
+                    {form.getValues("email")} avec tous les détails. Vérifiez
+                    également votre dossier spam si vous ne recevez pas
+                    l'e-mail.
+                  </>
+                )}
               </AlertDescription>
             </Alert>
           </CardContent>

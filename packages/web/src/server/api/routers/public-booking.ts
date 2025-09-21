@@ -15,6 +15,7 @@ import {
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { GoogleCalendarService, emailService } from "@acme/shared/server";
 import { addMinutes, addDays, format, startOfDay, endOfDay } from "date-fns";
+import { fr } from "date-fns/locale";
 
 // Helper function to create Google Meet link if needed (copied from appointments.ts)
 async function createMeetingLinkIfNeeded(
@@ -655,18 +656,43 @@ export const publicBookingRouter = createTRPCRouter({
       const appointmentTitle = `${appointmentType[0].name} - ${input.patientInfo.firstName} ${input.patientInfo.lastName}`;
 
       // Create meeting link if needed
-      const meetingData = await createMeetingLinkIfNeeded(
-        ctx,
-        org[0],
-        {
-          title: appointmentTitle,
-          description: input.notes,
-          startTime: input.startTime,
-          endTime: input.endTime,
-          appointmentTypeId: input.appointmentTypeId,
-        },
-        input.patientInfo.email,
-      );
+      let meetingData: {
+        meetingLink: string | null;
+        meetingId: string | null;
+      } = { meetingLink: null, meetingId: null };
+      try {
+        console.log("🎥 Attempting to create Google Meet link...");
+        meetingData = await createMeetingLinkIfNeeded(
+          ctx,
+          org[0],
+          {
+            title: appointmentTitle,
+            description: input.notes,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            appointmentTypeId: input.appointmentTypeId,
+          },
+          input.patientInfo.email,
+        );
+
+        if (meetingData.meetingLink) {
+          console.log("✅ Google Meet link created successfully");
+          console.log(
+            "📧 Google Calendar invitation should be sent automatically to:",
+            input.patientInfo.email,
+          );
+        } else {
+          console.log(
+            "ℹ️ No Google Meet link created (not an online appointment or Google not configured)",
+          );
+        }
+      } catch (meetingError) {
+        console.error("❌ Failed to create Google Meet link:", meetingError);
+        console.log(
+          "📧 Will still send confirmation email without meeting link",
+        );
+        meetingData = { meetingLink: null, meetingId: null };
+      }
 
       // Create the appointment
       const newAppointment = await ctx.db
@@ -691,29 +717,65 @@ export const publicBookingRouter = createTRPCRouter({
 
       // Send confirmation email
       try {
-        await emailService.sendPublicBookingConfirmation({
+        console.log(
+          "📧 Attempting to send booking confirmation email to:",
+          input.patientInfo.email,
+        );
+        console.log("📧 Email service details:", {
+          hasResendKey: !!process.env.RESEND_API_KEY,
+          fromEmail: "updates@email.allignia.io",
+          organizationName: org[0].name,
+        });
+
+        const emailResult = await emailService.sendPublicBookingConfirmation({
           to: input.patientInfo.email,
           patientName: `${input.patientInfo.firstName} ${input.patientInfo.lastName}`,
           organizationName: org[0].name,
           organizationLogo: org[0].logo || undefined,
           organizationDescription: org[0].description || undefined,
           appointmentType: appointmentType[0].name,
-          appointmentDate: format(input.startTime, "EEEE, MMMM d, yyyy"),
-          appointmentTime: `${format(input.startTime, "h:mm a")} - ${format(input.endTime, "h:mm a")}`,
+          appointmentDate: format(input.startTime, "EEEE, MMMM d, yyyy", {
+            locale: fr,
+          }),
+          appointmentTime: `${format(input.startTime, "HH:mm")} - ${format(input.endTime, "HH:mm")}`,
           duration: appointmentType[0].defaultDurationMinutes,
           meetingLink: meetingData.meetingLink || undefined,
           notes: input.notes || undefined,
         });
+
+        console.log(
+          "✅ Booking confirmation email sent successfully:",
+          emailResult,
+        );
       } catch (emailError) {
-        console.error("Failed to send booking confirmation email:", emailError);
-        // Don't throw error - appointment was created successfully, just log email failure
+        console.error(
+          "❌ Failed to send booking confirmation email:",
+          emailError,
+        );
+
+        // Log more details about the error for debugging
+        console.error("📧 Email error details:", {
+          errorMessage: (emailError as Error)?.message,
+          errorStack: (emailError as Error)?.stack,
+          to: input.patientInfo.email,
+          organizationName: org[0].name,
+          hasResendKey: !!process.env.RESEND_API_KEY,
+          resendKeyLength: process.env.RESEND_API_KEY?.length,
+        });
+
+        // Return error information to help with debugging
+        console.warn(
+          "⚠️ Appointment was created but email failed to send. Patient may not receive confirmation.",
+        );
       }
 
       return {
         success: true,
         appointment: newAppointment[0],
         meetingLink: meetingData.meetingLink,
-        message: "Appointment booked successfully!",
+        message: meetingData.meetingLink
+          ? "Rendez-vous réservé avec succès ! Vous recevrez une invitation Google Calendar et un e-mail de confirmation."
+          : "Rendez-vous réservé avec succès ! Vous recevrez un e-mail de confirmation.",
       };
     }),
 });
