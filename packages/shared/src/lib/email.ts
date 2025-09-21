@@ -54,7 +54,7 @@ export interface SendPublicBookingConfirmationParams {
 }
 
 const APP_NAME = "ACME";
-const FROM_EMAIL = "no-reply@acme.com";
+const FROM_EMAIL = "updates@email.allignia.io";
 
 export const emailService = {
   async sendWelcomeEmail({ to, firstName }: SendWelcomeEmailParams) {
