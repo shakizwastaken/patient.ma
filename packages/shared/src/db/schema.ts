@@ -217,7 +217,7 @@ export const appointment = pgTable("appointment", {
   description: text("description"),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
-  status: text("status").default("scheduled").notNull(), // scheduled, confirmed, completed, cancelled, no_show, payment_failed
+  status: text("status").default("scheduled").notNull(), // scheduled, confirmed, completed, cancelled, no_show, payment_failed, failed_payment
   type: text("type").default("consultation").notNull(), // consultation, follow_up, emergency, etc.
   appointmentTypeId: uuid("appointment_type_id").references(
     () => organizationAppointmentType.id,

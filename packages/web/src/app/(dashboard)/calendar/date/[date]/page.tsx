@@ -12,14 +12,17 @@ import { DateDetailsView } from "@/components/calendar/date-details-view";
 import { api, HydrateClient } from "@/trpc/server";
 
 interface DatePageProps {
-  params: {
+  params: Promise<{
     date: string;
-  };
+  }>;
 }
 
 export default async function DatePage({ params }: DatePageProps) {
+  // Await params before using its properties (Next.js requirement)
+  const { date: dateParam } = await params;
+
   // Parse the date from the URL parameter, avoiding timezone issues
-  const dateParts = params.date.split("-").map(Number);
+  const dateParts = dateParam.split("-").map(Number);
   const year = dateParts[0] ?? new Date().getFullYear();
   const month = dateParts[1] ?? new Date().getMonth() + 1;
   const day = dateParts[2] ?? new Date().getDate();

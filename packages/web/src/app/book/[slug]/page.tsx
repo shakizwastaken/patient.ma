@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { api } from "@/trpc/react";
 import { format, addDays, startOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -13,6 +13,7 @@ import {
   Phone,
   Video,
   CheckCircle,
+  RefreshCw,
 } from "lucide-react";
 import { useForm, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,10 +80,13 @@ type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
 export default function PublicBookingPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const slug = params.slug as string;
+  const retryAppointmentId = searchParams.get("retry");
 
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [meetingLink, setMeetingLink] = useState<string | null>(null);
+  const [isRetryMode, setIsRetryMode] = useState(!!retryAppointmentId);
 
   // Form setup with zod validation
   const form = useForm<BookingFormValues>({
@@ -111,6 +115,13 @@ export default function PublicBookingPage() {
     isLoading: orgLoading,
     error: orgError,
   } = api.publicBooking.getOrganizationBySlug.useQuery({ slug });
+
+  // Fetch retry appointment details if in retry mode
+  const { data: retryAppointment, isLoading: retryLoading } =
+    api.publicBooking.getAppointmentForRetry.useQuery(
+      { appointmentId: retryAppointmentId! },
+      { enabled: !!retryAppointmentId },
+    );
 
   // Fetch available dates
   const { data: availableDatesData, isLoading: datesLoading } =
@@ -145,6 +156,29 @@ export default function PublicBookingPage() {
       console.error("Booking error:", error);
     },
   });
+
+  // Pre-fill form when retry appointment data is loaded
+  useEffect(() => {
+    if (retryAppointment && isRetryMode) {
+      // Pre-fill the form with existing appointment data
+      form.setValue(
+        "appointmentType",
+        retryAppointment.appointmentTypeId || "",
+      );
+      form.setValue("firstName", retryAppointment.patientFirstName || "");
+      form.setValue("lastName", retryAppointment.patientLastName || "");
+      form.setValue("email", retryAppointment.patientEmail || "");
+      form.setValue("phoneNumber", retryAppointment.patientPhoneNumber || "");
+      form.setValue("notes", retryAppointment.description || "");
+      form.setValue("date", new Date(retryAppointment.startTime));
+
+      // Set the selected time slot
+      setSelectedTimeSlot({
+        startTime: new Date(retryAppointment.startTime),
+        endTime: new Date(retryAppointment.endTime),
+      });
+    }
+  }, [retryAppointment, isRetryMode, form]);
 
   const handleSlotSelect = (slot: { startTime: Date; endTime: Date }) => {
     setSelectedTimeSlot(slot);
@@ -319,6 +353,20 @@ export default function PublicBookingPage() {
             <p className="mt-2 text-gray-600">{organization.description}</p>
           )}
         </div>
+
+        {/* Retry Mode Banner */}
+        {isRetryMode && retryAppointment && (
+          <Alert className="mb-6">
+            <RefreshCw className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Nouvelle tentative de réservation</strong>
+              <br />
+              Votre formulaire a été pré-rempli avec les informations de votre
+              rendez-vous précédent. Vous pouvez modifier les informations si
+              nécessaire, puis cliquer sur "Continuer vers le paiement".
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

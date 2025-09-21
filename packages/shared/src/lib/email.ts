@@ -53,6 +53,17 @@ export interface SendPublicBookingConfirmationParams {
   notes?: string;
 }
 
+export interface SendPaymentRetryEmailParams {
+  to: string;
+  patientName: string;
+  organizationName: string;
+  organizationLogo?: string;
+  appointmentTitle: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  retryPaymentUrl: string;
+}
+
 const APP_NAME = "ACME";
 const FROM_EMAIL = "updates@email.allignia.io";
 
@@ -396,6 +407,87 @@ export const emailService = {
     } catch (error) {
       console.error("Email service error:", error);
       throw error;
+    }
+  },
+
+  async sendPaymentRetryEmail({
+    to,
+    patientName,
+    organizationName,
+    organizationLogo,
+    appointmentTitle,
+    appointmentDate,
+    appointmentTime,
+    retryPaymentUrl,
+  }: SendPaymentRetryEmailParams) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [to],
+        subject: `Finaliser votre réservation - ${organizationName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              ${organizationLogo ? `<img src="${organizationLogo}" alt="${organizationName}" style="height: 60px; margin-bottom: 20px;">` : ""}
+              <h1 style="color: #f97316; margin: 0; font-size: 28px;">Transaction incomplète</h1>
+              <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">Finalisons votre réservation ensemble</p>
+            </div>
+            
+            <div style="background-color: #fff7ed; border: 2px solid #fed7aa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h2 style="color: #ea580c; margin: 0 0 15px 0; font-size: 18px;">Bonjour ${patientName},</h2>
+              <p style="color: #9a3412; margin: 0 0 15px 0; line-height: 1.5;">
+                Votre paiement pour le rendez-vous suivant n'a pas pu être finalisé :
+              </p>
+              
+              <div style="background-color: #ffffff; border-radius: 6px; padding: 15px; margin: 15px 0;">
+                <p style="margin: 0; color: #374151;"><strong>Rendez-vous :</strong> ${appointmentTitle}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Date :</strong> ${appointmentDate}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Heure :</strong> ${appointmentTime}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Cabinet :</strong> ${organizationName}</p>
+              </div>
+              
+              <p style="color: #9a3412; margin: 15px 0; line-height: 1.5;">
+                Aucun montant n'a été débité de votre carte. Vous pouvez finaliser votre réservation en cliquant sur le bouton ci-dessous.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${retryPaymentUrl}" style="background-color: #f97316; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+                Finaliser ma réservation
+              </a>
+            </div>
+            
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px;">Que se passe-t-il ensuite ?</h3>
+              <ul style="color: #6b7280; margin: 0; padding-left: 20px; line-height: 1.6;">
+                <li>Cliquez sur le bouton pour accéder à votre espace de réservation</li>
+                <li>Choisissez de modifier vos détails ou de continuer directement au paiement</li>
+                <li>Complétez votre paiement de manière sécurisée via Stripe</li>
+                <li>Recevez votre confirmation et invitation de calendrier</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <p style="color: #9ca3af; font-size: 14px; margin: 0;">
+                Si vous avez des questions, contactez directement ${organizationName}.
+              </p>
+              <p style="margin: 16px 0 0 0; text-align: center; color: #9ca3af; font-size: 12px;">
+                Ceci est un e-mail automatique. Merci de ne pas y répondre.
+              </p>
+            </div>
+          </div>
+        `,
+      });
+
+      if (error) {
+        console.error("Failed to send payment retry email:", error);
+        return { error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error("Email service error:", error);
+      return { error: (error as Error).message };
     }
   },
 };

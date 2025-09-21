@@ -9,7 +9,7 @@ import {
   patient,
 } from "@acme/shared/server";
 import { eq } from "drizzle-orm";
-import { GoogleCalendarService } from "@acme/shared/server";
+import { GoogleCalendarService, emailService } from "@acme/shared/server";
 
 export async function POST(
   req: NextRequest,
@@ -91,6 +91,14 @@ export async function POST(
       case "checkout.session.completed":
         // Handle successful checkout - one-time payments
         await handleCheckoutSessionCompleted(
+          event.data.object as Stripe.Checkout.Session,
+          orgId,
+        );
+        break;
+
+      case "checkout.session.expired":
+        // Handle expired checkout session - send retry email
+        await handleCheckoutSessionExpired(
           event.data.object as Stripe.Checkout.Session,
           orgId,
         );
@@ -279,6 +287,79 @@ async function createMeetingLinkForPaidAppointment(
   }
 }
 
+// Helper function to send payment retry email
+async function sendPaymentRetryEmail(
+  appointmentId: string,
+  organizationId: string,
+) {
+  try {
+    // Get appointment details
+    const [appointmentDetails] = await db
+      .select()
+      .from(appointment)
+      .where(eq(appointment.id, appointmentId))
+      .limit(1);
+
+    if (!appointmentDetails) {
+      console.error(`Appointment ${appointmentId} not found`);
+      return;
+    }
+
+    // Get patient details
+    const [patientDetails] = await db
+      .select()
+      .from(patient)
+      .where(eq(patient.id, appointmentDetails.patientId))
+      .limit(1);
+
+    if (!patientDetails) {
+      console.error(`Patient for appointment ${appointmentId} not found`);
+      return;
+    }
+
+    // Get organization details
+    const [org] = await db
+      .select()
+      .from(organization)
+      .where(eq(organization.id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      console.error(`Organization ${organizationId} not found`);
+      return;
+    }
+
+    // Create retry payment URL - now using the cancel page
+    const retryUrl = `${process.env.BETTER_AUTH_URL}/book/${org.slug}/cancel?appointment_id=${appointmentId}`;
+
+    // Send retry payment email
+    const emailResult = await emailService.sendPaymentRetryEmail({
+      to: patientDetails.email!,
+      patientName: `${patientDetails.firstName} ${patientDetails.lastName}`,
+      organizationName: org.name,
+      organizationLogo: org.logo || undefined,
+      appointmentTitle: appointmentDetails.title,
+      appointmentDate: appointmentDetails.startTime.toLocaleDateString("fr-FR"),
+      appointmentTime: appointmentDetails.startTime.toLocaleTimeString(
+        "fr-FR",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+        },
+      ),
+      retryPaymentUrl: retryUrl,
+    });
+
+    if (emailResult.error) {
+      console.error("Failed to send retry payment email:", emailResult.error);
+    } else {
+      console.log(`✅ Payment retry email sent to: ${patientDetails.email}`);
+    }
+  } catch (error) {
+    console.error("Error sending payment retry email:", error);
+  }
+}
+
 // Handle successful checkout session (one-time payments)
 async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -321,6 +402,46 @@ async function handleCheckoutSessionCompleted(
     // TODO: Send notification to organization
   } catch (error) {
     console.error("Error handling checkout session completed:", error);
+  }
+}
+
+// Handle expired checkout session
+async function handleCheckoutSessionExpired(
+  session: Stripe.Checkout.Session,
+  organizationId: string,
+) {
+  try {
+    console.log(
+      `Checkout session expired: ${session.id} for org: ${organizationId}`,
+    );
+
+    // Extract appointment ID from metadata
+    const appointmentId = session.metadata?.appointmentId;
+    if (!appointmentId) {
+      console.error("No appointment ID found in expired session metadata");
+      return;
+    }
+
+    // Update appointment status to failed_payment (user cancelled/abandoned)
+    await db
+      .update(appointment)
+      .set({
+        status: "failed_payment",
+        paymentStatus: "failed",
+        stripeCheckoutSessionId: session.id,
+        notes: `Checkout session expired/cancelled. Stripe session: ${session.id}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(appointment.id, appointmentId));
+
+    console.log(
+      `Appointment ${appointmentId} marked as failed payment due to expired/cancelled session for org: ${organizationId}`,
+    );
+
+    // Send retry email to patient
+    await sendPaymentRetryEmail(appointmentId, organizationId);
+  } catch (error) {
+    console.error("Error handling checkout session expired:", error);
   }
 }
 
@@ -381,11 +502,11 @@ async function handlePaymentIntentFailed(
       return;
     }
 
-    // Update appointment status to payment_failed
+    // Update appointment status to failed_payment
     await db
       .update(appointment)
       .set({
-        status: "payment_failed",
+        status: "failed_payment",
         paymentStatus: "failed",
         stripePaymentIntentId: paymentIntent.id,
         notes: `Payment failed. Stripe payment intent: ${paymentIntent.id}`,
@@ -397,8 +518,8 @@ async function handlePaymentIntentFailed(
       `Appointment ${appointmentId} marked as payment failed for org: ${organizationId}`,
     );
 
-    // TODO: Send payment failure notification
-    // TODO: Optionally cancel the appointment or allow retry
+    // Send retry payment email to patient
+    await sendPaymentRetryEmail(appointmentId, organizationId);
   } catch (error) {
     console.error("Error handling payment intent failed:", error);
   }
@@ -465,7 +586,7 @@ async function handleInvoicePaymentFailed(
       await db
         .update(appointment)
         .set({
-          status: "payment_failed",
+          status: "failed_payment",
           paymentStatus: "failed",
           notes: `Subscription payment failed. Invoice: ${invoice.id}`,
           updatedAt: new Date(),
@@ -473,8 +594,10 @@ async function handleInvoicePaymentFailed(
         .where(eq(appointment.id, appointmentId));
     }
 
-    // TODO: Handle subscription payment failures
-    // TODO: Notify organization about failed payments
+    // Send retry payment email for failed subscription payments
+    if (appointmentId) {
+      await sendPaymentRetryEmail(appointmentId, organizationId);
+    }
   } catch (error) {
     console.error("Error handling invoice payment failed:", error);
   }

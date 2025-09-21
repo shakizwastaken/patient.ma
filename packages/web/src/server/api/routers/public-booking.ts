@@ -624,6 +624,60 @@ export const publicBookingRouter = createTRPCRouter({
       };
     }),
 
+  // Get appointment details for retry payment
+  getAppointmentForRetry: publicProcedure
+    .input(
+      z.object({
+        appointmentId: z.string().uuid("ID de rendez-vous invalide"),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Get appointment with organization and patient details
+      const [appointmentDetails] = await ctx.db
+        .select({
+          id: appointment.id,
+          title: appointment.title,
+          description: appointment.description,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          status: appointment.status,
+          paymentStatus: appointment.paymentStatus,
+          appointmentTypeId: appointment.appointmentTypeId,
+          organizationId: appointment.organizationId,
+          organizationName: organization.name,
+          organizationSlug: organization.slug,
+          patientFirstName: patient.firstName,
+          patientLastName: patient.lastName,
+          patientEmail: patient.email,
+          patientPhoneNumber: patient.phoneNumber,
+        })
+        .from(appointment)
+        .leftJoin(organization, eq(appointment.organizationId, organization.id))
+        .leftJoin(patient, eq(appointment.patientId, patient.id))
+        .where(eq(appointment.id, input.appointmentId))
+        .limit(1);
+
+      if (!appointmentDetails) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Rendez-vous non trouvé",
+        });
+      }
+
+      // Allow retry for both failed_payment and scheduled (payment pending) status
+      if (
+        appointmentDetails.status !== "failed_payment" &&
+        appointmentDetails.status !== "scheduled"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ce rendez-vous ne nécessite pas de nouveau paiement",
+        });
+      }
+
+      return appointmentDetails;
+    }),
+
   // Book an appointment (public endpoint)
   bookAppointment: publicProcedure
     .input(bookAppointmentSchema)
@@ -768,7 +822,7 @@ export const publicBookingRouter = createTRPCRouter({
           patientEmail: input.patientInfo.email,
           patientName: `${input.patientInfo.firstName} ${input.patientInfo.lastName}`,
           successUrl: `${process.env.BETTER_AUTH_URL}/book/${input.slug}/success?session_id={CHECKOUT_SESSION_ID}`,
-          cancelUrl: `${process.env.BETTER_AUTH_URL}/book/${input.slug}/cancel?appointment_id=${newAppointment[0]!.id}`,
+          cancelUrl: `${process.env.BETTER_AUTH_URL}/book/${input.slug}/cancel?appointment_id=${newAppointment[0]!.id}&send_email=true`,
           db: ctx.db,
         });
 
@@ -924,6 +978,218 @@ export const publicBookingRouter = createTRPCRouter({
         message: meetingData.meetingLink
           ? "Rendez-vous réservé avec succès ! Vous recevrez une invitation Google Calendar et un e-mail de confirmation."
           : "Rendez-vous réservé avec succès ! Vous recevrez un e-mail de confirmation.",
+      };
+    }),
+
+  // Retry payment for failed appointment
+  retryPayment: publicProcedure
+    .input(
+      z.object({
+        appointmentId: z.string().uuid("ID de rendez-vous invalide"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get appointment details
+      const [appointmentDetails] = await ctx.db
+        .select()
+        .from(appointment)
+        .where(eq(appointment.id, input.appointmentId))
+        .limit(1);
+
+      if (!appointmentDetails) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Rendez-vous non trouvé",
+        });
+      }
+
+      // Check if appointment is in failed_payment or scheduled status
+      if (
+        appointmentDetails.status !== "failed_payment" &&
+        appointmentDetails.status !== "scheduled"
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Ce rendez-vous ne nécessite pas de nouveau paiement",
+        });
+      }
+
+      // Get organization details
+      const [org] = await ctx.db
+        .select()
+        .from(organization)
+        .where(eq(organization.id, appointmentDetails.organizationId))
+        .limit(1);
+
+      if (!org) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Organisation non trouvée",
+        });
+      }
+
+      // Get patient details
+      const [patientDetails] = await ctx.db
+        .select()
+        .from(patient)
+        .where(eq(patient.id, appointmentDetails.patientId))
+        .limit(1);
+
+      if (!patientDetails) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Patient non trouvé",
+        });
+      }
+
+      // Get appointment type details
+      const [appointmentType] = await ctx.db
+        .select()
+        .from(organizationAppointmentType)
+        .where(
+          eq(
+            organizationAppointmentType.id,
+            appointmentDetails.appointmentTypeId!,
+          ),
+        )
+        .limit(1);
+
+      if (!appointmentType) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Type de rendez-vous non trouvé",
+        });
+      }
+
+      // Create new Stripe checkout session
+      const checkoutResult = await createStripeCheckoutSession({
+        organizationId: org.id,
+        appointmentId: input.appointmentId,
+        appointmentTypeId: appointmentDetails.appointmentTypeId!,
+        patientEmail: patientDetails.email!,
+        patientName: `${patientDetails.firstName} ${patientDetails.lastName}`,
+        successUrl: `${process.env.BETTER_AUTH_URL}/book/${org.slug}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${process.env.BETTER_AUTH_URL}/book/${org.slug}/cancel?appointment_id=${input.appointmentId}&send_email=true`,
+        db: ctx.db,
+      });
+
+      if (!checkoutResult) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Échec de la création du paiement",
+        });
+      }
+
+      // Update appointment status to scheduled (payment pending again)
+      await ctx.db
+        .update(appointment)
+        .set({
+          status: "scheduled",
+          paymentStatus: "pending",
+          notes: `Payment retry initiated. New Stripe session: ${checkoutResult.sessionId}`,
+          updatedAt: new Date(),
+        })
+        .where(eq(appointment.id, input.appointmentId));
+
+      return {
+        success: true,
+        checkoutUrl: checkoutResult.url,
+        message: "Redirection vers le paiement...",
+      };
+    }),
+
+  // Handle cancelled payment (user went back from Stripe)
+  handleCancelledPayment: publicProcedure
+    .input(
+      z.object({
+        appointmentId: z.string().uuid("ID de rendez-vous invalide"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Get appointment details
+      const [appointmentDetails] = await ctx.db
+        .select()
+        .from(appointment)
+        .where(eq(appointment.id, input.appointmentId))
+        .limit(1);
+
+      if (!appointmentDetails) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Rendez-vous non trouvé",
+        });
+      }
+
+      // Only process if appointment is in scheduled status (payment pending)
+      if (appointmentDetails.status !== "scheduled") {
+        return { success: true, message: "Rendez-vous déjà traité" };
+      }
+
+      // Update appointment status to failed_payment
+      await ctx.db
+        .update(appointment)
+        .set({
+          status: "failed_payment",
+          paymentStatus: "failed",
+          notes: `Payment cancelled by user`,
+          updatedAt: new Date(),
+        })
+        .where(eq(appointment.id, input.appointmentId));
+
+      // Send retry email for cancelled payment
+      try {
+        // Get patient and organization details for email
+        const [patientDetails] = await ctx.db
+          .select()
+          .from(patient)
+          .where(eq(patient.id, appointmentDetails.patientId))
+          .limit(1);
+
+        const [org] = await ctx.db
+          .select()
+          .from(organization)
+          .where(eq(organization.id, appointmentDetails.organizationId))
+          .limit(1);
+
+        if (patientDetails && org) {
+          const retryUrl = `${process.env.BETTER_AUTH_URL}/book/${org.slug}/cancel?appointment_id=${input.appointmentId}`;
+
+          const emailResult = await emailService.sendPaymentRetryEmail({
+            to: patientDetails.email!,
+            patientName: `${patientDetails.firstName} ${patientDetails.lastName}`,
+            organizationName: org.name,
+            organizationLogo: org.logo || undefined,
+            appointmentTitle: appointmentDetails.title,
+            appointmentDate:
+              appointmentDetails.startTime.toLocaleDateString("fr-FR"),
+            appointmentTime: appointmentDetails.startTime.toLocaleTimeString(
+              "fr-FR",
+              {
+                hour: "2-digit",
+                minute: "2-digit",
+              },
+            ),
+            retryPaymentUrl: retryUrl,
+          });
+
+          if (emailResult.error) {
+            console.error(
+              "Failed to send retry payment email:",
+              emailResult.error,
+            );
+          } else {
+            console.log(
+              `✅ Payment retry email sent to: ${patientDetails.email}`,
+            );
+          }
+        }
+      } catch (emailError) {
+        console.error("Error sending retry email:", emailError);
+      }
+
+      return {
+        success: true,
+        message: "Statut mis à jour et e-mail de relance envoyé",
       };
     }),
 });
