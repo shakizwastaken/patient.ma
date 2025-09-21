@@ -20,6 +20,7 @@ import { AlertCircle, CheckCircle } from "lucide-react";
 import { AppointmentTypesManager } from "./appointment-types-manager";
 import { OnlineConferencingSettings } from "./online-conferencing-settings";
 import { PublicBookingSettings } from "./public-booking-settings";
+import { StripeSettings } from "./stripe-settings";
 
 export function OrganizationSettingsForm() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
@@ -232,6 +233,13 @@ export function OrganizationSettingsForm() {
       {/* Public Booking Settings */}
       <div className="space-y-6">
         <PublicBookingSettings />
+      </div>
+
+      <Separator />
+
+      {/* Stripe Settings */}
+      <div className="space-y-6">
+        <StripeSettings />
       </div>
 
       <Separator />

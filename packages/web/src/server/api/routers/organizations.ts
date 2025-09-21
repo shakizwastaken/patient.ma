@@ -12,6 +12,11 @@ const updateOrganizationSchema = z.object({
   logo: z.string().url().optional().nullable(),
   description: z.string().optional().nullable(),
   publicBookingEnabled: z.boolean().optional(),
+  // Stripe settings
+  stripePublishableKey: z.string().optional().nullable(),
+  stripeSecretKey: z.string().optional().nullable(),
+  stripeWebhookSecret: z.string().optional().nullable(),
+  stripeEnabled: z.boolean().optional(),
 });
 
 export const organizationsRouter = createTRPCRouter({

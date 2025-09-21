@@ -93,6 +93,11 @@ export const organization = pgTable("organization", {
   ),
   // Public booking settings - use organization slug as public booking URL
   publicBookingEnabled: boolean("public_booking_enabled").default(false),
+  // Stripe Integration for payments
+  stripePublishableKey: text("stripe_publishable_key"),
+  stripeSecretKey: text("stripe_secret_key"),
+  stripeWebhookSecret: text("stripe_webhook_secret"),
+  stripeEnabled: boolean("stripe_enabled").default(false),
 });
 
 export const member = pgTable("member", {
