@@ -294,10 +294,10 @@ export const emailService = {
       const meetingSection = meetingLink
         ? `
           <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border: 1px solid #bfdbfe;">
-            <h3 style="color: #1e40af; margin: 0 0 10px 0;">🎥 Online Meeting</h3>
-            <p style="margin: 0 0 15px 0;">This is an online appointment. Please join the meeting at the scheduled time:</p>
-            <a href="${meetingLink}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Join Online Meeting</a>
-            <p style="margin: 15px 0 0 0; font-size: 12px; color: #6b7280;">Meeting Link: <a href="${meetingLink}" style="color: #3b82f6;">${meetingLink}</a></p>
+            <h3 style="color: #1e40af; margin: 0 0 10px 0;">🎥 Réunion en ligne</h3>
+            <p style="margin: 0 0 15px 0;">Il s'agit d'un rendez-vous en ligne. Veuillez rejoindre la réunion à l'heure prévue :</p>
+            <a href="${meetingLink}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Rejoindre la réunion en ligne</a>
+            <p style="margin: 15px 0 0 0; font-size: 12px; color: #6b7280;">Lien de réunion : <a href="${meetingLink}" style="color: #3b82f6;">${meetingLink}</a></p>
           </div>
         `
         : "";
@@ -305,7 +305,7 @@ export const emailService = {
       const notesSection = notes
         ? `
           <div style="background: #fefce8; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #fde047;">
-            <h3 style="color: #a16207; margin: 0 0 10px 0;">📝 Additional Notes</h3>
+            <h3 style="color: #a16207; margin: 0 0 10px 0;">📝 Notes supplémentaires</h3>
             <p style="margin: 0; white-space: pre-wrap;">${notes}</p>
           </div>
         `
@@ -318,40 +318,40 @@ export const emailService = {
       const { data, error } = await resend.emails.send({
         from: FROM_EMAIL,
         to: [to],
-        subject: `Appointment Confirmed - ${organizationName}`,
+        subject: `Rendez-vous confirmé - ${organizationName}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Ubuntu, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f6f9fc;">
             <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
               ${logoSection}
               
-              <h1 style="color: #1f2937; font-size: 32px; font-weight: bold; margin: 0 0 30px 0; text-align: center;">Appointment Confirmed!</h1>
+              <h1 style="color: #1f2937; font-size: 32px; font-weight: bold; margin: 0 0 30px 0; text-align: center;">Rendez-vous confirmé !</h1>
               
-              <p style="font-size: 16px; margin: 0 0 20px 0; color: #374151;">Dear ${patientName},</p>
+              <p style="font-size: 16px; margin: 0 0 20px 0; color: #374151;">Cher/Chère ${patientName},</p>
               
-              <p style="margin: 0 0 20px 0; color: #374151;">Your appointment with <strong>${organizationName}</strong> has been successfully booked and confirmed.</p>
+              <p style="margin: 0 0 20px 0; color: #374151;">Votre rendez-vous avec <strong>${organizationName}</strong> a été réservé et confirmé avec succès.</p>
               
               ${descriptionSection}
               
               <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 32px 0; border: 1px solid #e2e8f0;">
-                <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 24px;">Appointment Details</h2>
+                <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 24px;">Détails du rendez-vous</h2>
                 
                 <div style="margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280; font-weight: 500;">Type:</span>
+                  <span style="color: #6b7280; font-weight: 500;">Type :</span>
                   <span style="color: #1f2937; font-weight: 600;">${appointmentType}</span>
                 </div>
                 
                 <div style="margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280; font-weight: 500;">Date:</span>
+                  <span style="color: #6b7280; font-weight: 500;">Date :</span>
                   <span style="color: #1f2937; font-weight: 600;">${appointmentDate}</span>
                 </div>
                 
                 <div style="margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280; font-weight: 500;">Time:</span>
+                  <span style="color: #6b7280; font-weight: 500;">Heure :</span>
                   <span style="color: #1f2937; font-weight: 600;">${appointmentTime}</span>
                 </div>
                 
                 <div style="margin: 12px 0; padding: 8px 0; display: flex; justify-content: space-between;">
-                  <span style="color: #6b7280; font-weight: 500;">Duration:</span>
+                  <span style="color: #6b7280; font-weight: 500;">Durée :</span>
                   <span style="color: #1f2937; font-weight: 600;">${duration} minutes</span>
                 </div>
               </div>

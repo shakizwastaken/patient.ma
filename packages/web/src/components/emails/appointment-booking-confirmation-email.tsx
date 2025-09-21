@@ -39,7 +39,7 @@ export const AppointmentBookingConfirmationEmail = ({
   notes,
   organizationDescription,
 }: AppointmentBookingConfirmationEmailProps) => {
-  const previewText = `Your appointment with ${organizationName} has been confirmed`;
+  const previewText = `Votre rendez-vous avec ${organizationName} a été confirmé`;
 
   return (
     <Html>
@@ -59,13 +59,13 @@ export const AppointmentBookingConfirmationEmail = ({
             </Section>
           )}
 
-          <Heading style={h1}>Appointment Confirmed!</Heading>
+          <Heading style={h1}>Rendez-vous confirmé !</Heading>
 
-          <Text style={text}>Dear {patientName},</Text>
+          <Text style={text}>Cher/Chère {patientName},</Text>
 
           <Text style={text}>
-            Your appointment with <strong>{organizationName}</strong> has been
-            successfully booked and confirmed.
+            Votre rendez-vous avec <strong>{organizationName}</strong> a été
+            réservé et confirmé avec succès.
           </Text>
 
           {organizationDescription && (
@@ -73,25 +73,25 @@ export const AppointmentBookingConfirmationEmail = ({
           )}
 
           <Section style={appointmentDetails}>
-            <Heading style={h2}>Appointment Details</Heading>
+            <Heading style={h2}>Détails du rendez-vous</Heading>
 
             <div style={detailRow}>
-              <Text style={detailLabel}>Type:</Text>
+              <Text style={detailLabel}>Type :</Text>
               <Text style={detailValue}>{appointmentType}</Text>
             </div>
 
             <div style={detailRow}>
-              <Text style={detailLabel}>Date:</Text>
+              <Text style={detailLabel}>Date :</Text>
               <Text style={detailValue}>{appointmentDate}</Text>
             </div>
 
             <div style={detailRow}>
-              <Text style={detailLabel}>Time:</Text>
+              <Text style={detailLabel}>Heure :</Text>
               <Text style={detailValue}>{appointmentTime}</Text>
             </div>
 
             <div style={detailRow}>
-              <Text style={detailLabel}>Duration:</Text>
+              <Text style={detailLabel}>Durée :</Text>
               <Text style={detailValue}>{duration} minutes</Text>
             </div>
 
@@ -99,16 +99,16 @@ export const AppointmentBookingConfirmationEmail = ({
               <>
                 <Hr style={hr} />
                 <div style={onlineMeetingSection}>
-                  <Heading style={h3}>🎥 Online Meeting</Heading>
+                  <Heading style={h3}>🎥 Réunion en ligne</Heading>
                   <Text style={text}>
-                    This is an online appointment. Please join the meeting at
-                    the scheduled time using the link below:
+                    Il s'agit d'un rendez-vous en ligne. Veuillez rejoindre la
+                    réunion à l'heure prévue en utilisant le lien ci-dessous :
                   </Text>
                   <Button href={meetingLink} style={button}>
-                    Join Online Meeting
+                    Rejoindre la réunion en ligne
                   </Button>
                   <Text style={smallText}>
-                    Meeting Link:{" "}
+                    Lien de réunion :{" "}
                     <Link href={meetingLink} style={link}>
                       {meetingLink}
                     </Link>
@@ -121,7 +121,7 @@ export const AppointmentBookingConfirmationEmail = ({
               <>
                 <Hr style={hr} />
                 <div style={notesSection}>
-                  <Heading style={h3}>Additional Notes</Heading>
+                  <Heading style={h3}>Notes supplémentaires</Heading>
                   <Text style={text}>{notes}</Text>
                 </div>
               </>
@@ -131,23 +131,24 @@ export const AppointmentBookingConfirmationEmail = ({
           <Hr style={hr} />
 
           <Section style={importantInfo}>
-            <Heading style={h3}>Important Information</Heading>
+            <Heading style={h3}>Informations importantes</Heading>
             <ul style={list}>
               <li style={listItem}>
-                Please arrive 5-10 minutes early for your appointment
+                Veuillez arriver 5-10 minutes en avance pour votre rendez-vous
               </li>
               <li style={listItem}>
-                If you need to reschedule or cancel, please contact us as soon
-                as possible
+                Si vous devez reporter ou annuler, veuillez nous contacter dès
+                que possible
               </li>
               {meetingLink && (
                 <li style={listItem}>
-                  For online appointments, ensure you have a stable internet
-                  connection and a quiet environment
+                  Pour les rendez-vous en ligne, assurez-vous d'avoir une
+                  connexion internet stable et un environnement calme
                 </li>
               )}
               <li style={listItem}>
-                Bring any relevant medical documents or previous test results
+                Apportez tous les documents médicaux ou résultats d'examens
+                pertinents
               </li>
             </ul>
           </Section>
@@ -155,13 +156,13 @@ export const AppointmentBookingConfirmationEmail = ({
           <Hr style={hr} />
 
           <Text style={footer}>
-            Thank you for choosing {organizationName}. We look forward to seeing
-            you!
+            Merci d'avoir choisi {organizationName}. Nous avons hâte de vous
+            voir !
           </Text>
 
           <Text style={smallText}>
-            This is an automated confirmation email. Please do not reply to this
-            email.
+            Ceci est un e-mail de confirmation automatique. Veuillez ne pas
+            répondre à cet e-mail.
           </Text>
         </Container>
       </Body>
@@ -170,17 +171,18 @@ export const AppointmentBookingConfirmationEmail = ({
 };
 
 AppointmentBookingConfirmationEmail.PreviewProps = {
-  patientName: "John Doe",
-  organizationName: "Dr. Smith's Clinic",
+  patientName: "Jean Dupont",
+  organizationName: "Clinique Dr. Smith",
   organizationLogo: "https://example.com/logo.png",
   appointmentType: "Consultation initiale",
-  appointmentDate: "Friday, December 15, 2023",
-  appointmentTime: "2:00 PM - 2:45 PM",
+  appointmentDate: "Vendredi 15 décembre 2023",
+  appointmentTime: "14h00 - 14h45",
   duration: 45,
   meetingLink: "https://meet.google.com/abc-defg-hij",
-  notes: "Please bring your insurance card and any previous medical records.",
+  notes:
+    "Veuillez apporter votre carte d'assurance et tous les dossiers médicaux précédents.",
   organizationDescription:
-    "Providing quality healthcare with personalized attention.",
+    "Fournir des soins de santé de qualité avec une attention personnalisée.",
 } as AppointmentBookingConfirmationEmailProps;
 
 export default AppointmentBookingConfirmationEmail;
