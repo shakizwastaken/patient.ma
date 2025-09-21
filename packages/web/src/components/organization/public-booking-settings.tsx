@@ -292,7 +292,7 @@ export function PublicBookingSettings() {
                   </h4>
                   <div className="mt-2 space-y-1 text-sm text-blue-700">
                     <p>
-                      <strong>Title:</strong> Book with{" "}
+                      <strong>Title:</strong> Reserver avec{" "}
                       {activeOrganization.name}
                     </p>
                     {description && (

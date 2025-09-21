@@ -248,7 +248,7 @@ export const publicBookingRouter = createTRPCRouter({
 
       return {
         ...org[0],
-        title: `Book with ${org[0].name}`, // Generate title from organization name
+        title: `Reserver avec ${org[0].name}`,
         appointmentTypes,
         config: config[0] || {
           slotDurationMinutes: 30,

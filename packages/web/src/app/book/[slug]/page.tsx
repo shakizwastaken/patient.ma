@@ -14,7 +14,7 @@ import {
   Video,
   CheckCircle,
 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -56,8 +56,8 @@ import { cn } from "@/lib/utils";
 
 // Form validation schema
 const bookingFormSchema = z.object({
-  appointmentType: z.string({
-    required_error: "Veuillez sélectionner un type de rendez-vous.",
+  appointmentType: z.string().min(1, {
+    message: "Veuillez sélectionner un type de rendez-vous.",
   }),
   date: z.date({
     required_error: "Veuillez sélectionner une date.",
@@ -77,16 +77,6 @@ const bookingFormSchema = z.object({
 
 type BookingFormValues = z.infer<typeof bookingFormSchema>;
 
-// Add default values to fix the date field
-const defaultValues: Partial<BookingFormValues> = {
-  appointmentType: "",
-  firstName: "",
-  lastName: "",
-  email: "",
-  phoneNumber: "",
-  notes: "",
-};
-
 export default function PublicBookingPage() {
   const params = useParams();
   const slug = params.slug as string;
@@ -94,10 +84,18 @@ export default function PublicBookingPage() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [meetingLink, setMeetingLink] = useState<string | null>(null);
 
-  // Form setup
+  // Form setup with zod validation
   const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
-    defaultValues,
+    mode: "onChange",
+    defaultValues: {
+      appointmentType: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      phoneNumber: "",
+      notes: "",
+    },
   });
 
   const selectedDate = form.watch("date");

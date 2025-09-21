@@ -93,7 +93,6 @@ export const organization = pgTable("organization", {
   ),
   // Public booking settings - use organization slug as public booking URL
   publicBookingEnabled: boolean("public_booking_enabled").default(false),
-  // Title will be "Book with {organization.name}" and description will use the main description field
 });
 
 export const member = pgTable("member", {
