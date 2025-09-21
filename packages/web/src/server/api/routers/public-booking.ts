@@ -16,6 +16,88 @@ import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { GoogleCalendarService, emailService } from "@acme/shared/server";
 import { addMinutes, addDays, format, startOfDay, endOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
+import Stripe from "stripe";
+
+// Helper function to create Stripe checkout session for paid appointments
+async function createStripeCheckoutSession(params: {
+  organizationId: string;
+  appointmentId: string;
+  appointmentTypeId: string;
+  patientEmail: string;
+  patientName: string;
+  successUrl: string;
+  cancelUrl: string;
+  db: any;
+}): Promise<{ url: string; sessionId: string } | null> {
+  try {
+    // Get organization Stripe configuration
+    const [org] = await params.db
+      .select()
+      .from(organization)
+      .where(eq(organization.id, params.organizationId))
+      .limit(1);
+
+    if (!org?.stripeSecretKey || !org.stripeEnabled) {
+      throw new Error("Stripe not configured for this organization");
+    }
+
+    // Get appointment type payment configuration
+    const [appointmentType] = await params.db
+      .select()
+      .from(organizationAppointmentType)
+      .where(eq(organizationAppointmentType.id, params.appointmentTypeId))
+      .limit(1);
+
+    if (!appointmentType?.requiresPayment || !appointmentType.stripePriceId) {
+      throw new Error("Invalid payment configuration");
+    }
+
+    // Initialize Stripe
+    const stripe = new Stripe(org.stripeSecretKey, {
+      apiVersion: "2025-08-27.basil",
+    });
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode:
+        appointmentType.paymentType === "subscription"
+          ? "subscription"
+          : "payment",
+      customer_email: params.patientEmail,
+      line_items: [
+        {
+          price: appointmentType.stripePriceId,
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        organizationId: params.organizationId,
+        appointmentId: params.appointmentId,
+        appointmentTypeId: params.appointmentTypeId,
+        patientEmail: params.patientEmail,
+        patientName: params.patientName,
+      },
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+      billing_address_collection: "auto",
+      allow_promotion_codes: true,
+      expires_at: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
+    });
+
+    if (!session.url) {
+      throw new Error("Failed to create checkout session URL");
+    }
+
+    return {
+      url: session.url,
+      sessionId: session.id,
+    };
+  } catch (error) {
+    console.error("Error creating Stripe checkout session:", error);
+    return null;
+  }
+}
 
 // Helper function to create Google Meet link if needed (copied from appointments.ts)
 async function createMeetingLinkIfNeeded(
@@ -694,7 +776,69 @@ export const publicBookingRouter = createTRPCRouter({
         meetingData = { meetingLink: null, meetingId: null };
       }
 
-      // Create the appointment
+      // Check if this appointment type requires payment
+      if (appointmentType[0].requiresPayment) {
+        // For paid appointments, create appointment in "scheduled" status
+        // and return Stripe checkout URL
+        const newAppointment = await ctx.db
+          .insert(appointment)
+          .values({
+            title: appointmentTitle,
+            description: input.notes,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            appointmentTypeId: input.appointmentTypeId,
+            patientId,
+            organizationId: org[0].id,
+            status: "scheduled", // Will be confirmed after payment
+            paymentStatus: "pending",
+            meetingLink: meetingData.meetingLink,
+            meetingId: meetingData.meetingId,
+          })
+          .returning({ id: appointment.id });
+
+        // Create Stripe checkout session
+        const checkoutResult = await createStripeCheckoutSession({
+          organizationId: org[0].id,
+          appointmentId: newAppointment[0]!.id,
+          appointmentTypeId: input.appointmentTypeId,
+          patientEmail: input.patientInfo.email,
+          patientName: `${input.patientInfo.firstName} ${input.patientInfo.lastName}`,
+          successUrl: `${process.env.BETTER_AUTH_URL}/book/${input.slug}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${process.env.BETTER_AUTH_URL}/book/${input.slug}/cancel?appointment_id=${newAppointment[0]!.id}`,
+          db: ctx.db,
+        });
+
+        if (!checkoutResult) {
+          // If checkout creation fails, delete the appointment
+          await ctx.db
+            .delete(appointment)
+            .where(eq(appointment.id, newAppointment[0]!.id));
+
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to create payment checkout",
+          });
+        }
+
+        // Update appointment with checkout session ID
+        await ctx.db
+          .update(appointment)
+          .set({
+            stripeCheckoutSessionId: checkoutResult.sessionId,
+          })
+          .where(eq(appointment.id, newAppointment[0]!.id));
+
+        return {
+          success: true,
+          appointmentId: newAppointment[0]!.id,
+          requiresPayment: true,
+          checkoutUrl: checkoutResult.url,
+          message: "Redirection vers le paiement...",
+        };
+      }
+
+      // For free appointments, create and confirm immediately
       const newAppointment = await ctx.db
         .insert(appointment)
         .values({
@@ -702,7 +846,8 @@ export const publicBookingRouter = createTRPCRouter({
           description: input.notes,
           startTime: input.startTime,
           endTime: input.endTime,
-          status: "scheduled",
+          status: "confirmed", // Free appointments are immediately confirmed
+          paymentStatus: "not_required", // No payment needed
           type: appointmentType[0].name
             .toLowerCase()
             .replace(/\s+/g, "_") as any,
@@ -771,6 +916,8 @@ export const publicBookingRouter = createTRPCRouter({
 
       return {
         success: true,
+        appointmentId: newAppointment[0]!.id,
+        requiresPayment: false,
         appointment: newAppointment[0],
         meetingLink: meetingData.meetingLink,
         message: meetingData.meetingLink

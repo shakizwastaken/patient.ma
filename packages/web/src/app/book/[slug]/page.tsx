@@ -132,8 +132,14 @@ export default function PublicBookingPage() {
   // Book appointment mutation
   const bookAppointment = api.publicBooking.bookAppointment.useMutation({
     onSuccess: (result) => {
-      setBookingSuccess(true);
-      setMeetingLink(result.meetingLink);
+      if (result.requiresPayment && result.checkoutUrl) {
+        // Redirect to Stripe checkout for paid appointments
+        window.location.href = result.checkoutUrl;
+      } else {
+        // Show success message for free appointments
+        setBookingSuccess(true);
+        setMeetingLink(result.meetingLink || null);
+      }
     },
     onError: (error) => {
       console.error("Booking error:", error);
@@ -344,31 +350,50 @@ export default function PublicBookingPage() {
                               <SelectContent>
                                 {organization.appointmentTypes.map((type) => (
                                   <SelectItem key={type.id} value={type.id}>
-                                    <div className="flex items-center gap-2">
-                                      <div
-                                        className="h-3 w-3 rounded-full"
-                                        style={{
-                                          backgroundColor:
-                                            type.color || "#3b82f6",
-                                        }}
-                                      />
-                                      <span>{type.name}</span>
-                                      <span className="text-gray-500">
-                                        ({type.defaultDurationMinutes} min)
-                                      </span>
-                                      {organization.config
-                                        .onlineConferencingEnabled &&
-                                        type.id ===
-                                          organization.config
-                                            .onlineConferencingAppointmentTypeId && (
+                                    <div className="flex w-full items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <div
+                                          className="h-3 w-3 rounded-full"
+                                          style={{
+                                            backgroundColor:
+                                              type.color || "#3b82f6",
+                                          }}
+                                        />
+                                        <span>{type.name}</span>
+                                        <span className="text-gray-500">
+                                          ({type.defaultDurationMinutes} min)
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        {type.requiresPayment ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="text-xs"
+                                          >
+                                            Payant
+                                          </Badge>
+                                        ) : (
                                           <Badge
                                             variant="secondary"
-                                            className="ml-2"
+                                            className="text-xs"
                                           >
-                                            <Video className="mr-1 h-3 w-3" />
-                                            En ligne
+                                            Gratuit
                                           </Badge>
                                         )}
+                                        {organization.config
+                                          .onlineConferencingEnabled &&
+                                          type.id ===
+                                            organization.config
+                                              .onlineConferencingAppointmentTypeId && (
+                                            <Badge
+                                              variant="secondary"
+                                              className="ml-1"
+                                            >
+                                              <Video className="mr-1 h-3 w-3" />
+                                              En ligne
+                                            </Badge>
+                                          )}
+                                      </div>
                                     </div>
                                   </SelectItem>
                                 ))}
@@ -380,13 +405,35 @@ export default function PublicBookingPage() {
                       )}
                     />
                     {selectedAppointmentType && (
-                      <FormDescription className="mt-2">
-                        {
-                          organization.appointmentTypes.find(
-                            (t) => t.id === selectedAppointmentType,
-                          )?.description
-                        }
-                      </FormDescription>
+                      <div className="mt-2 space-y-2">
+                        <FormDescription>
+                          {
+                            organization.appointmentTypes.find(
+                              (t) => t.id === selectedAppointmentType,
+                            )?.description
+                          }
+                        </FormDescription>
+                        {selectedAppointmentTypeData?.requiresPayment && (
+                          <div className="border-primary/20 bg-primary/5 rounded-lg border p-3">
+                            <div className="flex items-start gap-2">
+                              <div className="flex-shrink-0">
+                                <div className="bg-primary mt-2 h-2 w-2 rounded-full"></div>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-primary text-sm font-medium">
+                                  Paiement requis
+                                </p>
+                                <p className="text-primary/80 mt-1 text-xs">
+                                  Ce type de rendez-vous nécessite un paiement.
+                                  Vous serez redirigé vers notre page de
+                                  paiement sécurisée après avoir sélectionné
+                                  votre créneau.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -711,6 +758,8 @@ export default function PublicBookingPage() {
                             <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
                             Réservation...
                           </div>
+                        ) : selectedAppointmentTypeData?.requiresPayment ? (
+                          "Continuer vers le paiement"
                         ) : (
                           "Confirmer la réservation"
                         )}

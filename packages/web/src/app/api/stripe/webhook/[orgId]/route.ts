@@ -9,27 +9,29 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> },
 ) {
+  const { orgId } = await params;
+
+  if (!orgId) {
+    console.error("No organization ID provided in webhook URL");
+    return NextResponse.json(
+      { error: "Organization ID is required" },
+      { status: 400 },
+    );
+  }
+
+  // Get raw body for signature verification - following Pedro's pattern
+  const body = await req.text();
+  const signature = (await headers()).get("stripe-signature");
+
+  if (!signature) {
+    console.error("No Stripe signature found");
+    return NextResponse.json(
+      { error: "No Stripe signature found" },
+      { status: 400 },
+    );
+  }
+
   try {
-    const { orgId } = await params;
-    const body = await req.text();
-    const signature = (await headers()).get("stripe-signature");
-
-    if (!signature) {
-      console.error("No Stripe signature found");
-      return NextResponse.json(
-        { error: "No Stripe signature found" },
-        { status: 400 },
-      );
-    }
-
-    if (!orgId) {
-      console.error("No organization ID provided in webhook URL");
-      return NextResponse.json(
-        { error: "Organization ID is required" },
-        { status: 400 },
-      );
-    }
-
     // Get the specific organization's Stripe configuration
     const [org] = await db
       .select()
@@ -51,12 +53,12 @@ export async function POST(
       );
     }
 
-    // Initialize Stripe with organization's secret key
+    // Initialize Stripe with organization's secret key - following Pedro's pattern
     const stripe = new Stripe(org.stripeSecretKey, {
       apiVersion: "2025-08-27.basil",
     });
 
-    // Verify webhook signature with organization's webhook secret
+    // Verify webhook signature - following Pedro's error handling pattern
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(
@@ -64,13 +66,12 @@ export async function POST(
         signature,
         org.stripeWebhookSecret,
       );
-    } catch (error) {
+    } catch (err: any) {
       console.error(
-        `Webhook signature verification failed for org ${orgId}:`,
-        error,
+        `Webhook signature verification failed for org ${orgId}: ${err.message}`,
       );
       return NextResponse.json(
-        { error: "Webhook signature verification failed" },
+        { error: `Webhook Error: ${err.message}` },
         { status: 400 },
       );
     }
@@ -79,9 +80,10 @@ export async function POST(
       `Processing webhook event: ${event.type} for organization: ${orgId}`,
     );
 
-    // Handle different event types
+    // Handle different event types - following Pedro's switch pattern
     switch (event.type) {
       case "checkout.session.completed":
+        // Handle successful checkout - one-time payments
         await handleCheckoutSessionCompleted(
           event.data.object as Stripe.Checkout.Session,
           orgId,
@@ -89,6 +91,7 @@ export async function POST(
         break;
 
       case "payment_intent.succeeded":
+        // Handle successful payment intent
         await handlePaymentIntentSucceeded(
           event.data.object as Stripe.PaymentIntent,
           orgId,
@@ -96,6 +99,7 @@ export async function POST(
         break;
 
       case "payment_intent.payment_failed":
+        // Handle failed payment intent
         await handlePaymentIntentFailed(
           event.data.object as Stripe.PaymentIntent,
           orgId,
@@ -103,6 +107,7 @@ export async function POST(
         break;
 
       case "invoice.payment_succeeded":
+        // Handle successful subscription payment
         await handleInvoicePaymentSucceeded(
           event.data.object as Stripe.Invoice,
           orgId,
@@ -110,6 +115,7 @@ export async function POST(
         break;
 
       case "invoice.payment_failed":
+        // Handle failed subscription payment
         await handleInvoicePaymentFailed(
           event.data.object as Stripe.Invoice,
           orgId,
@@ -117,6 +123,7 @@ export async function POST(
         break;
 
       case "customer.subscription.created":
+        // Handle new subscription created
         await handleSubscriptionCreated(
           event.data.object as Stripe.Subscription,
           orgId,
@@ -124,6 +131,7 @@ export async function POST(
         break;
 
       case "customer.subscription.updated":
+        // Handle subscription updates (plan changes, etc.)
         await handleSubscriptionUpdated(
           event.data.object as Stripe.Subscription,
           orgId,
@@ -131,6 +139,7 @@ export async function POST(
         break;
 
       case "customer.subscription.deleted":
+        // Handle subscription cancellation
         await handleSubscriptionDeleted(
           event.data.object as Stripe.Subscription,
           orgId,
@@ -141,11 +150,12 @@ export async function POST(
         console.log(`Unhandled event type: ${event.type} for org: ${orgId}`);
     }
 
-    return NextResponse.json({ received: true });
+    // Return success response - following Pedro's pattern
+    return NextResponse.json({ received: true }, { status: 200 });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("Webhook processing error:", error);
     return NextResponse.json(
-      { error: "Webhook handler failed" },
+      { error: "Internal server error" },
       { status: 500 },
     );
   }
@@ -283,15 +293,26 @@ async function handleInvoicePaymentSucceeded(
     // For subscription-based appointments, this confirms recurring payment
     const appointmentId = invoice.metadata?.appointmentId;
     if (appointmentId) {
+      // Extract subscription ID - it can be a string or Subscription object
+      // Using type assertion since Stripe's TypeScript definitions may not include all properties
+      let subscriptionId: string | null = null;
+      const invoiceWithSubscription = invoice as Stripe.Invoice & {
+        subscription?: string | Stripe.Subscription;
+      };
+
+      if (invoiceWithSubscription.subscription) {
+        subscriptionId =
+          typeof invoiceWithSubscription.subscription === "string"
+            ? invoiceWithSubscription.subscription
+            : invoiceWithSubscription.subscription.id;
+      }
+
       await db
         .update(appointment)
         .set({
           status: "confirmed",
           paymentStatus: "paid",
-          stripeSubscriptionId:
-            typeof invoice.subscription === "string"
-              ? invoice.subscription
-              : invoice.subscription?.toString(),
+          stripeSubscriptionId: subscriptionId,
           notes: `Subscription payment succeeded. Invoice: ${invoice.id}`,
           updatedAt: new Date(),
         })
