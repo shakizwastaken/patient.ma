@@ -6,39 +6,77 @@ import { organizationAppointmentType } from "@acme/shared/server";
 import { createTRPCRouter, organizationProcedure } from "@/server/api/trpc";
 
 // Input validation schemas
-const createAppointmentTypeSchema = z.object({
-  name: z.string().min(1, "Le nom est requis").max(100, "Nom trop long"),
-  description: z.string().optional(),
-  defaultDurationMinutes: z
-    .number()
-    .min(5, "La durée minimum est de 5 minutes")
-    .max(480, "La durée maximum est de 8 heures")
-    .default(30),
-  color: z
-    .string()
-    .regex(/^#[0-9A-F]{6}$/i, "Format de couleur invalide (hex)")
-    .default("#3b82f6"),
-});
+const createAppointmentTypeSchema = z
+  .object({
+    name: z.string().min(1, "Le nom est requis").max(100, "Nom trop long"),
+    description: z.string().optional(),
+    defaultDurationMinutes: z
+      .number()
+      .min(5, "La durée minimum est de 5 minutes")
+      .max(480, "La durée maximum est de 8 heures")
+      .default(30),
+    color: z
+      .string()
+      .regex(/^#[0-9A-F]{6}$/i, "Format de couleur invalide (hex)")
+      .default("#3b82f6"),
+    // Payment configuration
+    requiresPayment: z.boolean().default(false),
+    stripeProductId: z.string().optional(),
+    stripePriceId: z.string().optional(),
+    paymentType: z.enum(["one_time", "subscription"]).default("one_time"),
+  })
+  .refine(
+    (data) => {
+      // If payment is required, Stripe product ID and price ID must be provided
+      if (data.requiresPayment) {
+        return data.stripeProductId && data.stripePriceId;
+      }
+      return true;
+    },
+    {
+      message: "Veuillez sélectionner un produit et un prix Stripe",
+      path: ["stripePriceId"],
+    },
+  );
 
-const updateAppointmentTypeSchema = z.object({
-  id: z.string().uuid("ID de type de rendez-vous invalide"),
-  name: z
-    .string()
-    .min(1, "Le nom est requis")
-    .max(100, "Nom trop long")
-    .optional(),
-  description: z.string().optional(),
-  defaultDurationMinutes: z
-    .number()
-    .min(5, "La durée minimum est de 5 minutes")
-    .max(480, "La durée maximum est de 8 heures")
-    .optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-F]{6}$/i, "Format de couleur invalide (hex)")
-    .optional(),
-  isActive: z.boolean().optional(),
-});
+const updateAppointmentTypeSchema = z
+  .object({
+    id: z.string().uuid("ID de type de rendez-vous invalide"),
+    name: z
+      .string()
+      .min(1, "Le nom est requis")
+      .max(100, "Nom trop long")
+      .optional(),
+    description: z.string().optional(),
+    defaultDurationMinutes: z
+      .number()
+      .min(5, "La durée minimum est de 5 minutes")
+      .max(480, "La durée maximum est de 8 heures")
+      .optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9A-F]{6}$/i, "Format de couleur invalide (hex)")
+      .optional(),
+    isActive: z.boolean().optional(),
+    // Payment configuration
+    requiresPayment: z.boolean().optional(),
+    stripeProductId: z.string().optional().nullable(),
+    stripePriceId: z.string().optional().nullable(),
+    paymentType: z.enum(["one_time", "subscription"]).optional(),
+  })
+  .refine(
+    (data) => {
+      // If payment is required, Stripe product ID and price ID must be provided
+      if (data.requiresPayment) {
+        return data.stripeProductId && data.stripePriceId;
+      }
+      return true;
+    },
+    {
+      message: "Veuillez sélectionner un produit et un prix Stripe",
+      path: ["stripePriceId"],
+    },
+  );
 
 export const appointmentTypesRouter = createTRPCRouter({
   // Get all appointment types for the organization
