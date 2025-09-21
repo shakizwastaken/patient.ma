@@ -40,6 +40,7 @@ interface ExtendedOrganization {
 
 export function PublicBookingSettings() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
+  const { data: organizationData } = api.organizations.getCurrent.useQuery();
   const [isUpdating, setIsUpdating] = useState(false);
   const [publicBookingEnabled, setPublicBookingEnabled] = useState(false);
   const [organizationSlug, setOrganizationSlug] = useState("");
@@ -49,22 +50,21 @@ export function PublicBookingSettings() {
   const utils = api.useUtils();
 
   // Initialize form data when organization is loaded
+  // Use tRPC data for custom fields like publicBookingEnabled
   useEffect(() => {
-    if (activeOrganization) {
-      // Type assertion for our custom fields
-      const org = activeOrganization as ExtendedOrganization;
-      setPublicBookingEnabled(org.publicBookingEnabled || false);
-      setOrganizationSlug(org.slug || "");
-      setDescription(org.description || "");
+    if (organizationData) {
+      setPublicBookingEnabled(organizationData.publicBookingEnabled || false);
+      setOrganizationSlug(organizationData.slug || "");
+      setDescription(organizationData.description || "");
     }
-  }, [activeOrganization]);
+  }, [organizationData]);
 
   // Update organization mutation
   const updateOrganization = api.organizations.update.useMutation({
-    onSuccess: () => {
+    onSuccess: async (updatedOrg) => {
       toast.success("Public booking settings updated successfully");
-      // Invalidate the active organization query to refetch updated data
-      window.location.reload(); // Simple refresh for now
+      // Invalidate the organization query to refetch updated data
+      await utils.organizations.getCurrent.invalidate();
     },
     onError: (error) => {
       toast.error(error.message || "Failed to update settings");
@@ -125,12 +125,9 @@ export function PublicBookingSettings() {
 
   const hasChanges =
     publicBookingEnabled !==
-      ((activeOrganization as ExtendedOrganization)?.publicBookingEnabled ||
-        false) ||
-    organizationSlug !==
-      ((activeOrganization as ExtendedOrganization)?.slug || "") ||
-    description !==
-      ((activeOrganization as ExtendedOrganization)?.description || "");
+      (organizationData?.publicBookingEnabled || false) ||
+    organizationSlug !== (organizationData?.slug || "") ||
+    description !== (organizationData?.description || "");
 
   const bookingUrl = organizationSlug
     ? `${window.location.origin}/book/${organizationSlug}`

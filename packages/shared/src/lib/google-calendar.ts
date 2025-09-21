@@ -77,9 +77,9 @@ export class GoogleCalendarService {
         console.log("✅ Access token appears valid (not expired)");
       }
     } catch (error: any) {
-      if (error.message === "GOOGLE_TOKEN_EXPIRED") {
+      if (error.message === "GOOGLE_TOKEN_EXPIRED") 
         throw error;
-      }
+      
 
       console.error("❌ Error checking token validity:", error);
       throw new Error("GOOGLE_TOKEN_EXPIRED");

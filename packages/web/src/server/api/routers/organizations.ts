@@ -15,6 +15,24 @@ const updateOrganizationSchema = z.object({
 });
 
 export const organizationsRouter = createTRPCRouter({
+  // Get organization details with all custom fields
+  getCurrent: organizationProcedure.query(async ({ ctx }) => {
+    const [org] = await ctx.db
+      .select()
+      .from(organization)
+      .where(eq(organization.id, ctx.organization.id))
+      .limit(1);
+
+    if (!org) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Organization not found",
+      });
+    }
+
+    return org;
+  }),
+
   // Update organization details
   update: organizationProcedure
     .input(updateOrganizationSchema)
