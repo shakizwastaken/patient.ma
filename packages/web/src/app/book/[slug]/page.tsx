@@ -151,13 +151,13 @@ export default function PublicBookingPage() {
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle className="text-red-600">
-              Organization Not Found
+              Organisation introuvable
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-600">
-              The organization you're looking for doesn't exist or public
-              booking is not enabled.
+              L'organisation que vous recherchez n'existe pas ou la réservation
+              publique n'est pas activée.
             </p>
           </CardContent>
         </Card>
@@ -173,9 +173,11 @@ export default function PublicBookingPage() {
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            <CardTitle className="text-green-600">Booking Confirmed!</CardTitle>
+            <CardTitle className="text-green-600">
+              Réservation confirmée !
+            </CardTitle>
             <CardDescription>
-              Your appointment has been successfully booked.
+              Votre rendez-vous a été réservé avec succès.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -192,7 +194,7 @@ export default function PublicBookingPage() {
                   <div className="mb-2 flex items-center justify-center gap-2">
                     <Video className="h-4 w-4 text-blue-600" />
                     <span className="text-sm font-medium text-blue-600">
-                      Online Meeting
+                      Réunion en ligne
                     </span>
                   </div>
                   <Button
@@ -206,7 +208,7 @@ export default function PublicBookingPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Join Meeting
+                      Rejoindre la réunion
                     </a>
                   </Button>
                 </div>
@@ -214,8 +216,8 @@ export default function PublicBookingPage() {
             </div>
             <Alert>
               <AlertDescription>
-                A confirmation email has been sent to {patientInfo.email} with
-                all the details.
+                Un e-mail de confirmation a été envoyé à {patientInfo.email}{" "}
+                avec tous les détails.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -261,7 +263,7 @@ export default function PublicBookingPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Select Appointment Type
+                  Sélectionner le type de rendez-vous
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -270,7 +272,7 @@ export default function PublicBookingPage() {
                   onValueChange={setSelectedAppointmentType}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose appointment type" />
+                    <SelectValue placeholder="Choisir le type de rendez-vous" />
                   </SelectTrigger>
                   <SelectContent>
                     {organization.appointmentTypes.map((type) => (
@@ -290,7 +292,7 @@ export default function PublicBookingPage() {
                                 .onlineConferencingAppointmentTypeId && (
                               <Badge variant="secondary" className="ml-2">
                                 <Video className="mr-1 h-3 w-3" />
-                                Online
+                                En ligne
                               </Badge>
                             )}
                         </div>
@@ -312,7 +314,7 @@ export default function PublicBookingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calendar className="h-5 w-5" />
-                    Select Date
+                    Sélectionner la date
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -320,18 +322,20 @@ export default function PublicBookingPage() {
                     <SelectTrigger>
                       <SelectValue
                         placeholder={
-                          datesLoading ? "Loading dates..." : "Select a date"
+                          datesLoading
+                            ? "Chargement des dates..."
+                            : "Sélectionner une date"
                         }
                       />
                     </SelectTrigger>
                     <SelectContent>
                       {datesLoading ? (
                         <SelectItem value="" disabled>
-                          Loading available dates...
+                          Chargement des dates disponibles...
                         </SelectItem>
                       ) : dateOptions.length === 0 ? (
                         <SelectItem value="" disabled>
-                          No available dates
+                          Aucune date disponible
                         </SelectItem>
                       ) : (
                         dateOptions.map((option) => (
@@ -339,8 +343,8 @@ export default function PublicBookingPage() {
                             <div className="flex w-full items-center justify-between">
                               <span>{option.label}</span>
                               <span className="ml-2 text-xs text-gray-500">
-                                {option.availableSlots} slot
-                                {option.availableSlots !== 1 ? "s" : ""}
+                                {option.availableSlots} créneau
+                                {option.availableSlots !== 1 ? "x" : ""}
                               </span>
                             </div>
                           </SelectItem>
@@ -358,7 +362,7 @@ export default function PublicBookingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
-                    Select Time
+                    Sélectionner l'heure
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -368,8 +372,8 @@ export default function PublicBookingPage() {
                     </div>
                   ) : slotsData?.slots.length === 0 ? (
                     <p className="py-4 text-center text-gray-500">
-                      No available slots for this date. Please select another
-                      date.
+                      Aucun créneau disponible pour cette date. Veuillez
+                      sélectionner une autre date.
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
@@ -403,13 +407,13 @@ export default function PublicBookingPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5" />
-                    Your Information
+                    Vos informations
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="firstName">First Name *</Label>
+                      <Label htmlFor="firstName">Prénom *</Label>
                       <Input
                         id="firstName"
                         value={patientInfo.firstName}
@@ -419,11 +423,11 @@ export default function PublicBookingPage() {
                             firstName: e.target.value,
                           })
                         }
-                        placeholder="John"
+                        placeholder="Jean"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="lastName">Last Name *</Label>
+                      <Label htmlFor="lastName">Nom de famille *</Label>
                       <Input
                         id="lastName"
                         value={patientInfo.lastName}
@@ -433,7 +437,7 @@ export default function PublicBookingPage() {
                             lastName: e.target.value,
                           })
                         }
-                        placeholder="Doe"
+                        placeholder="Dupont"
                       />
                     </div>
                   </div>
@@ -449,11 +453,11 @@ export default function PublicBookingPage() {
                           email: e.target.value,
                         })
                       }
-                      placeholder="john.doe@example.com"
+                      placeholder="jean.dupont@exemple.com"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Label htmlFor="phoneNumber">Numéro de téléphone</Label>
                     <Input
                       id="phoneNumber"
                       value={patientInfo.phoneNumber}
@@ -463,16 +467,16 @@ export default function PublicBookingPage() {
                           phoneNumber: e.target.value,
                         })
                       }
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="+212 6 12 34 56 78"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="notes">Additional Notes</Label>
+                    <Label htmlFor="notes">Notes supplémentaires</Label>
                     <Textarea
                       id="notes"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Any additional information or special requests..."
+                      placeholder="Toute information supplémentaire ou demande particulière..."
                       rows={3}
                     />
                   </div>
@@ -484,31 +488,33 @@ export default function PublicBookingPage() {
             {selectedSlot && isFormValid && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Booking Summary</CardTitle>
+                  <CardTitle>Récapitulatif de la réservation</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Appointment Type:</span>
+                      <span className="text-gray-600">
+                        Type de rendez-vous :
+                      </span>
                       <span className="font-medium">
                         {selectedAppointmentTypeData?.name}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Date:</span>
+                      <span className="text-gray-600">Date :</span>
                       <span className="font-medium">
                         {format(selectedSlot.startTime, "EEEE, MMMM d, yyyy")}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Time:</span>
+                      <span className="text-gray-600">Heure :</span>
                       <span className="font-medium">
                         {format(selectedSlot.startTime, "h:mm a")} -{" "}
                         {format(selectedSlot.endTime, "h:mm a")}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Duration:</span>
+                      <span className="text-gray-600">Durée :</span>
                       <span className="font-medium">
                         {selectedAppointmentTypeData?.defaultDurationMinutes}{" "}
                         minutes
@@ -516,10 +522,10 @@ export default function PublicBookingPage() {
                     </div>
                     {isOnlineAppointment && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Meeting Type:</span>
+                        <span className="text-gray-600">Type de réunion :</span>
                         <Badge variant="secondary" className="ml-2">
                           <Video className="mr-1 h-3 w-3" />
-                          Online Meeting
+                          Réunion en ligne
                         </Badge>
                       </div>
                     )}
@@ -529,18 +535,18 @@ export default function PublicBookingPage() {
 
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Patient:</span>
+                      <span className="text-gray-600">Patient :</span>
                       <span className="font-medium">
                         {patientInfo.firstName} {patientInfo.lastName}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Email:</span>
+                      <span className="text-gray-600">Email :</span>
                       <span className="font-medium">{patientInfo.email}</span>
                     </div>
                     {patientInfo.phoneNumber && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Phone:</span>
+                        <span className="text-gray-600">Téléphone :</span>
                         <span className="font-medium">
                           {patientInfo.phoneNumber}
                         </span>
