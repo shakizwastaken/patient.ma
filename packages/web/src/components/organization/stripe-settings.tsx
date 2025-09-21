@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useOrganizationSettings } from "@/contexts/organization-settings-context";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { api } from "@/trpc/react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -50,6 +52,11 @@ export function StripeSettings() {
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
   const [copiedWebhookUrl, setCopiedWebhookUrl] = useState(false);
+
+  // tRPC mutations for webhook management
+  const setupWebhookMutation = api.stripe.setupWebhook.useMutation();
+  const removeWebhookMutation = api.stripe.removeWebhook.useMutation();
+  const utils = api.useUtils();
 
   // Use global settings context
   const {
@@ -106,6 +113,60 @@ export function StripeSettings() {
       setTimeout(() => setCopiedWebhookUrl(false), 2000);
     } catch (error) {
       console.error("Failed to copy webhook URL:", error);
+    }
+  };
+
+  // Automatic webhook setup
+  const handleSetupWebhook = async () => {
+    try {
+      const result = await setupWebhookMutation.mutateAsync();
+
+      // Update the form with the webhook secret
+      form.setValue("stripeWebhookSecret", result.webhookSecret);
+
+      // Trigger the global save to update the database
+      await saveSettings(
+        {
+          stripeWebhookSecret: result.webhookSecret,
+        },
+        {
+          successMessage: result.isNewWebhook
+            ? "Webhook créé et configuré automatiquement !"
+            : "Webhook configuré automatiquement !",
+          errorMessage: "Échec de la configuration du webhook",
+        },
+      );
+
+      // Refresh organization data
+      await utils.organizations.getCurrent.invalidate();
+    } catch (error) {
+      toast.error("Échec de la configuration automatique du webhook");
+    }
+  };
+
+  // Remove webhook
+  const handleRemoveWebhook = async () => {
+    try {
+      await removeWebhookMutation.mutateAsync();
+
+      // Clear the form field
+      form.setValue("stripeWebhookSecret", "");
+
+      // Trigger the global save to update the database
+      await saveSettings(
+        {
+          stripeWebhookSecret: null,
+        },
+        {
+          successMessage: "Webhook supprimé avec succès",
+          errorMessage: "Échec de la suppression du webhook",
+        },
+      );
+
+      // Refresh organization data
+      await utils.organizations.getCurrent.invalidate();
+    } catch (error) {
+      toast.error("Échec de la suppression du webhook");
     }
   };
 
@@ -264,45 +325,97 @@ export function StripeSettings() {
                   )}
                 />
 
-                {/* Stripe Webhook Secret */}
-                <FormField
-                  control={form.control}
-                  name="stripeWebhookSecret"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Secret webhook Stripe</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            type={showWebhookSecret ? "text" : "password"}
-                            placeholder="whsec_..."
-                            {...field}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() =>
-                              setShowWebhookSecret(!showWebhookSecret)
-                            }
-                          >
-                            {showWebhookSecret ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </FormControl>
-                      <FormDescription>
-                        Secret pour les webhooks Stripe (optionnel, commence par
-                        whsec_)
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
+                {/* Stripe Webhook Configuration */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Configuration webhook
+                      </Label>
+                      <p className="text-muted-foreground text-sm">
+                        Les webhooks permettent de confirmer automatiquement les
+                        paiements
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {organizationData?.stripeWebhookSecret ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRemoveWebhook}
+                          disabled={removeWebhookMutation.isPending}
+                        >
+                          {removeWebhookMutation.isPending ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            "Supprimer webhook"
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          onClick={handleSetupWebhook}
+                          disabled={
+                            setupWebhookMutation.isPending ||
+                            !stripeEnabled ||
+                            !stripeSecretKey
+                          }
+                        >
+                          {setupWebhookMutation.isPending ? (
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                          ) : (
+                            "Configurer automatiquement"
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {organizationData?.stripeWebhookSecret && (
+                    <FormField
+                      control={form.control}
+                      name="stripeWebhookSecret"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Secret webhook Stripe</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type={showWebhookSecret ? "text" : "password"}
+                                placeholder="whsec_..."
+                                {...field}
+                                readOnly
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-0 right-0 h-full px-3 py-2 hover:bg-transparent"
+                                onClick={() =>
+                                  setShowWebhookSecret(!showWebhookSecret)
+                                }
+                              >
+                                {showWebhookSecret ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            Secret généré automatiquement lors de la
+                            configuration du webhook
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
+                </div>
 
                 {/* Webhook URL */}
                 {webhookUrl && (
@@ -338,8 +451,9 @@ export function StripeSettings() {
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Important :</strong> Vos clés Stripe sont stockées
-                    de manière sécurisée.
+                    <strong>Configuration automatique :</strong> Une fois vos
+                    clés configurées, utilisez le bouton "Configurer
+                    automatiquement" pour créer le webhook dans Stripe.
                     <ul className="mt-2 list-inside list-disc space-y-1">
                       <li>
                         Utilisez les clés de test pendant le développement
@@ -348,10 +462,7 @@ export function StripeSettings() {
                         Passez aux clés de production uniquement en direct
                       </li>
                       <li>Ne partagez jamais vos clés secrètes</li>
-                      <li>
-                        Configurez les webhooks dans votre tableau de bord
-                        Stripe
-                      </li>
+                      <li>Les webhooks sont configurés automatiquement</li>
                     </ul>
                   </AlertDescription>
                 </Alert>

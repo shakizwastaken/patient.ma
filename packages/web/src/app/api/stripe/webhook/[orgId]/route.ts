@@ -288,7 +288,10 @@ async function handleInvoicePaymentSucceeded(
         .set({
           status: "confirmed",
           paymentStatus: "paid",
-          stripeSubscriptionId: invoice.subscription as string,
+          stripeSubscriptionId:
+            typeof invoice.subscription === "string"
+              ? invoice.subscription
+              : invoice.subscription?.toString(),
           notes: `Subscription payment succeeded. Invoice: ${invoice.id}`,
           updatedAt: new Date(),
         })
