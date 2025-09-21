@@ -310,14 +310,14 @@ export function StripeSettings() {
                 {/* Test Connection Section */}
                 {form.watch("stripePublishableKey") &&
                   form.watch("stripeSecretKey") && (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                    <div className="border-primary/20 bg-primary/5 rounded-lg border p-4">
                       <div className="flex items-start gap-3">
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
+                        <CheckCircle2 className="text-primary mt-0.5 h-5 w-5" />
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-medium text-green-900">
+                          <h4 className="text-primary font-medium">
                             Configuration Stripe
                           </h4>
-                          <div className="mt-2 space-y-1 text-sm text-green-700">
+                          <div className="text-primary/80 mt-2 space-y-1 text-sm">
                             <p>
                               <strong>Clé publique :</strong>{" "}
                               {form
