@@ -39,6 +39,20 @@ export interface SendAppointmentConfirmationParams {
   notes?: string;
 }
 
+export interface SendPublicBookingConfirmationParams {
+  to: string;
+  patientName: string;
+  organizationName: string;
+  organizationLogo?: string;
+  organizationDescription?: string;
+  appointmentType: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  duration: number;
+  meetingLink?: string;
+  notes?: string;
+}
+
 const APP_NAME = "ACME";
 const FROM_EMAIL = "no-reply@acme.com";
 
@@ -245,6 +259,136 @@ export const emailService = {
 
       if (error) {
         console.error("Failed to send appointment confirmation email:", error);
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Email service error:", error);
+      throw error;
+    }
+  },
+
+  async sendPublicBookingConfirmation({
+    to,
+    patientName,
+    organizationName,
+    organizationLogo,
+    organizationDescription,
+    appointmentType,
+    appointmentDate,
+    appointmentTime,
+    duration,
+    meetingLink,
+    notes,
+  }: SendPublicBookingConfirmationParams) {
+    try {
+      const logoSection = organizationLogo
+        ? `
+          <div style="text-align: center; margin: 20px 0;">
+            <img src="${organizationLogo}" alt="${organizationName}" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover;" />
+          </div>
+        `
+        : "";
+
+      const meetingSection = meetingLink
+        ? `
+          <div style="background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; border: 1px solid #bfdbfe;">
+            <h3 style="color: #1e40af; margin: 0 0 10px 0;">🎥 Online Meeting</h3>
+            <p style="margin: 0 0 15px 0;">This is an online appointment. Please join the meeting at the scheduled time:</p>
+            <a href="${meetingLink}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Join Online Meeting</a>
+            <p style="margin: 15px 0 0 0; font-size: 12px; color: #6b7280;">Meeting Link: <a href="${meetingLink}" style="color: #3b82f6;">${meetingLink}</a></p>
+          </div>
+        `
+        : "";
+
+      const notesSection = notes
+        ? `
+          <div style="background: #fefce8; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #fde047;">
+            <h3 style="color: #a16207; margin: 0 0 10px 0;">📝 Additional Notes</h3>
+            <p style="margin: 0; white-space: pre-wrap;">${notes}</p>
+          </div>
+        `
+        : "";
+
+      const descriptionSection = organizationDescription
+        ? `<p style="margin: 0 0 20px 0; color: #6b7280;">${organizationDescription}</p>`
+        : "";
+
+      const { data, error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [to],
+        subject: `Appointment Confirmed - ${organizationName}`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Ubuntu, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f6f9fc;">
+            <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+              ${logoSection}
+              
+              <h1 style="color: #1f2937; font-size: 32px; font-weight: bold; margin: 0 0 30px 0; text-align: center;">Appointment Confirmed!</h1>
+              
+              <p style="font-size: 16px; margin: 0 0 20px 0; color: #374151;">Dear ${patientName},</p>
+              
+              <p style="margin: 0 0 20px 0; color: #374151;">Your appointment with <strong>${organizationName}</strong> has been successfully booked and confirmed.</p>
+              
+              ${descriptionSection}
+              
+              <div style="background: #f8fafc; padding: 24px; border-radius: 8px; margin: 32px 0; border: 1px solid #e2e8f0;">
+                <h2 style="margin: 0 0 20px 0; color: #1f2937; font-size: 24px;">Appointment Details</h2>
+                
+                <div style="margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280; font-weight: 500;">Type:</span>
+                  <span style="color: #1f2937; font-weight: 600;">${appointmentType}</span>
+                </div>
+                
+                <div style="margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280; font-weight: 500;">Date:</span>
+                  <span style="color: #1f2937; font-weight: 600;">${appointmentDate}</span>
+                </div>
+                
+                <div style="margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280; font-weight: 500;">Time:</span>
+                  <span style="color: #1f2937; font-weight: 600;">${appointmentTime}</span>
+                </div>
+                
+                <div style="margin: 12px 0; padding: 8px 0; display: flex; justify-content: space-between;">
+                  <span style="color: #6b7280; font-weight: 500;">Duration:</span>
+                  <span style="color: #1f2937; font-weight: 600;">${duration} minutes</span>
+                </div>
+              </div>
+              
+              ${meetingSection}
+              
+              ${notesSection}
+              
+              <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 32px 0; border: 1px solid #fecaca;">
+                <h3 style="color: #dc2626; margin: 0 0 15px 0;">Important Information</h3>
+                <ul style="margin: 0; padding-left: 20px; color: #374151;">
+                  <li style="margin: 8px 0;">Please arrive 5-10 minutes early for your appointment</li>
+                  <li style="margin: 8px 0;">If you need to reschedule or cancel, please contact us as soon as possible</li>
+                  ${
+                    meetingLink
+                      ? '<li style="margin: 8px 0;">For online appointments, ensure you have a stable internet connection and a quiet environment</li>'
+                      : ""
+                  }
+                  <li style="margin: 8px 0;">Bring any relevant medical documents or previous test results</li>
+                </ul>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
+              
+              <p style="margin: 20px 0; text-align: center; color: #6b7280;">Thank you for choosing ${organizationName}. We look forward to seeing you!</p>
+              
+              <p style="margin: 16px 0 0 0; text-align: center; color: #9ca3af; font-size: 12px;">This is an automated confirmation email. Please do not reply to this email.</p>
+            </div>
+          </div>
+        `,
+      });
+
+      if (error) {
+        console.error(
+          "Failed to send public booking confirmation email:",
+          error,
+        );
         throw error;
       }
 

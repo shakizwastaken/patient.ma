@@ -4,6 +4,8 @@ import { appointmentsRouter } from "@/server/api/routers/appointments";
 import { availabilityRouter } from "@/server/api/routers/availability";
 import { appointmentTypesRouter } from "@/server/api/routers/appointment-types";
 import { googleIntegrationRouter } from "@/server/api/routers/google-integration";
+import { publicBookingRouter } from "@/server/api/routers/public-booking";
+import { organizationsRouter } from "@/server/api/routers/organizations";
 import { createCallerFactory, createTRPCRouter } from "@/server/api/trpc";
 
 /**
@@ -18,6 +20,8 @@ export const appRouter = createTRPCRouter({
   availability: availabilityRouter,
   appointmentTypes: appointmentTypesRouter,
   googleIntegration: googleIntegrationRouter,
+  publicBooking: publicBookingRouter,
+  organizations: organizationsRouter,
 });
 
 // export type definition of API

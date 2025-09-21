@@ -61,6 +61,8 @@ const updateAppointmentConfigSchema = z.object({
   // Online conferencing settings
   onlineConferencingEnabled: z.boolean().default(false),
   onlineConferencingAppointmentTypeId: z.string().uuid().optional().nullable(),
+  // Public booking settings
+  publicBookingEnabled: z.boolean().default(false),
 });
 
 export const availabilityRouter = createTRPCRouter({
@@ -272,6 +274,7 @@ export const availabilityRouter = createTRPCRouter({
         sameDayBookingAllowed: true,
         onlineConferencingEnabled: false,
         onlineConferencingAppointmentTypeId: null,
+        publicBookingEnabled: false,
       };
 
       await ctx.db.insert(organizationAppointmentConfig).values(defaultConfig);

@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertCircle, CheckCircle } from "lucide-react";
 import { AppointmentTypesManager } from "./appointment-types-manager";
 import { OnlineConferencingSettings } from "./online-conferencing-settings";
+import { PublicBookingSettings } from "./public-booking-settings";
 
 export function OrganizationSettingsForm() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
@@ -224,6 +225,13 @@ export function OrganizationSettingsForm() {
             {isUpdating ? "Mise à jour..." : "Mettre à jour le cabinet"}
           </Button>
         </form>
+      </div>
+
+      <Separator />
+
+      {/* Public Booking Settings */}
+      <div className="space-y-6">
+        <PublicBookingSettings />
       </div>
 
       <Separator />

@@ -79,6 +79,7 @@ export const organization = pgTable("organization", {
   name: text("name").notNull(),
   slug: text("slug").unique(),
   logo: text("logo"),
+  description: text("description"), // Organization description for public booking and general use
   timezone: text("timezone").default("Africa/Casablanca").notNull(), // Default to Casablanca timezone
   createdAt: timestamp("created_at").notNull(),
   metadata: text("metadata"),
@@ -90,6 +91,9 @@ export const organization = pgTable("organization", {
   googleIntegrationEnabled: boolean("google_integration_enabled").default(
     false,
   ),
+  // Public booking settings - use organization slug as public booking URL
+  publicBookingEnabled: boolean("public_booking_enabled").default(false),
+  // Title will be "Book with {organization.name}" and description will use the main description field
 });
 
 export const member = pgTable("member", {
@@ -296,6 +300,10 @@ export const organizationAppointmentConfig = pgTable(
     ).references(() => organizationAppointmentType.id, {
       onDelete: "set null",
     }),
+    // Public booking settings
+    publicBookingEnabled: boolean("public_booking_enabled")
+      .default(false)
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
