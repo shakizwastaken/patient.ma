@@ -2,9 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { authClient } from "@acme/shared/client";
-import { api } from "@/trpc/react";
-import { toast } from "sonner";
+import { useSettingsForm, settingsValidators } from "@/hooks/use-settings-form";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
+
+// Form validation schema
+const publicBookingSettingsSchema = z.object({
+  publicBookingEnabled: z.boolean(),
+  slug: z.string().optional(),
+  description: z.string().optional(),
+});
+
+type PublicBookingSettingsValues = z.infer<typeof publicBookingSettingsSchema>;
+
 import {
   Card,
   CardContent,
@@ -26,6 +36,8 @@ import {
   CheckCircle2,
   Globe,
 } from "lucide-react";
+import { useOrganizationSettings } from "@/contexts/organization-settings-context";
+import { toast } from "sonner";
 
 // Extended organization type with our custom fields
 interface ExtendedOrganization {
@@ -40,14 +52,19 @@ interface ExtendedOrganization {
 
 export function PublicBookingSettings() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
-  const { data: organizationData } = api.organizations.getCurrent.useQuery();
-  const [isUpdating, setIsUpdating] = useState(false);
   const [publicBookingEnabled, setPublicBookingEnabled] = useState(false);
   const [organizationSlug, setOrganizationSlug] = useState("");
   const [description, setDescription] = useState("");
   const [copiedUrl, setCopiedUrl] = useState(false);
 
-  const utils = api.useUtils();
+  // Use global settings context
+  const {
+    organizationData,
+    isUpdating,
+    saveSettings,
+    registerChanges,
+    clearChanges,
+  } = useOrganizationSettings();
 
   // Initialize form data when organization is loaded
   // Use tRPC data for custom fields like publicBookingEnabled
@@ -56,42 +73,48 @@ export function PublicBookingSettings() {
       setPublicBookingEnabled(organizationData.publicBookingEnabled || false);
       setOrganizationSlug(organizationData.slug || "");
       setDescription(organizationData.description || "");
+      // Clear any pending changes for this component
+      clearChanges("public-booking");
     }
-  }, [organizationData]);
+  }, [organizationData, clearChanges]);
 
-  // Update organization mutation
-  const updateOrganization = api.organizations.update.useMutation({
-    onSuccess: async (updatedOrg) => {
-      toast.success("Public booking settings updated successfully");
-      // Invalidate the organization query to refetch updated data
-      await utils.organizations.getCurrent.invalidate();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to update settings");
-    },
-  });
+  // Watch for changes and register them globally with debouncing
+  useEffect(() => {
+    if (!organizationData) return;
 
-  const handleSave = async () => {
-    if (!activeOrganization) return;
+    const timeoutId = setTimeout(() => {
+      const originalValues = {
+        publicBookingEnabled: organizationData.publicBookingEnabled || false,
+        slug: organizationData.slug || "",
+        description: organizationData.description || "",
+      };
 
-    // Validate slug if public booking is enabled
-    if (publicBookingEnabled && !organizationSlug.trim()) {
-      toast.error("Organization slug is required for public booking");
-      return;
-    }
+      // Check if values have changed
+      const hasChanges =
+        publicBookingEnabled !== originalValues.publicBookingEnabled ||
+        organizationSlug !== originalValues.slug ||
+        description !== originalValues.description;
 
-    setIsUpdating(true);
-    try {
-      await updateOrganization.mutateAsync({
-        id: activeOrganization.id,
-        publicBookingEnabled,
-        slug: organizationSlug.trim() || null,
-        description: description.trim() || null,
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+      if (hasChanges) {
+        registerChanges("public-booking", {
+          publicBookingEnabled,
+          slug: organizationSlug.trim() || null,
+          description: description.trim() || null,
+        });
+      } else {
+        clearChanges("public-booking");
+      }
+    }, 100); // 100ms debounce to prevent excessive updates
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    publicBookingEnabled,
+    organizationSlug,
+    description,
+    organizationData,
+    registerChanges,
+    clearChanges,
+  ]);
 
   const generateSlug = () => {
     if (!activeOrganization?.name) return;
@@ -312,21 +335,6 @@ export function PublicBookingSettings() {
             </div>
           </>
         )}
-
-        {/* Save Button */}
-        <div className="flex justify-end">
-          <Button
-            onClick={handleSave}
-            disabled={
-              isUpdating ||
-              !hasChanges ||
-              (publicBookingEnabled && !organizationSlug.trim())
-            }
-          >
-            {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isUpdating ? "Saving..." : "Save Settings"}
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );

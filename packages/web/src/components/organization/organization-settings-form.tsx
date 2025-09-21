@@ -21,6 +21,8 @@ import { AppointmentTypesManager } from "./appointment-types-manager";
 import { OnlineConferencingSettings } from "./online-conferencing-settings";
 import { PublicBookingSettings } from "./public-booking-settings";
 import { StripeSettings } from "./stripe-settings";
+import { OrganizationSettingsProvider } from "@/contexts/organization-settings-context";
+import { StickySaveBar } from "./sticky-save-bar";
 
 export function OrganizationSettingsForm() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
@@ -142,155 +144,160 @@ export function OrganizationSettingsForm() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Organization Details */}
-      <div className="space-y-6">
-        <div>
-          <p className="text-muted-foreground">
-            Mettre à jour les informations de base de votre cabinet
-          </p>
-        </div>
+    <OrganizationSettingsProvider>
+      <div className="space-y-8">
+        {/* Organization Details */}
+        <div className="space-y-6">
+          <div>
+            <p className="text-muted-foreground">
+              Mettre à jour les informations de base de votre cabinet
+            </p>
+          </div>
 
-        <form onSubmit={handleUpdateOrganization} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={handleUpdateOrganization} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nom du cabinet</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="Entrez le nom du cabinet"
+                  disabled={isUpdating}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="slug">Identifiant du cabinet</Label>
+                <Input
+                  id="slug"
+                  value={formData.slug}
+                  onChange={(e) =>
+                    setFormData({ ...formData, slug: e.target.value })
+                  }
+                  placeholder="cabinet-identifiant"
+                  disabled={isUpdating}
+                />
+              </div>
+            </div>
+
             <div className="grid gap-2">
-              <Label htmlFor="name">Nom du cabinet</Label>
+              <Label htmlFor="logo">URL du logo</Label>
               <Input
-                id="name"
-                value={formData.name}
+                id="logo"
+                value={formData.logo}
                 onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
+                  setFormData({ ...formData, logo: e.target.value })
                 }
-                placeholder="Entrez le nom du cabinet"
+                placeholder="https://example.com/logo.png"
                 disabled={isUpdating}
               />
             </div>
+
             <div className="grid gap-2">
-              <Label htmlFor="slug">Identifiant du cabinet</Label>
-              <Input
-                id="slug"
-                value={formData.slug}
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
                 onChange={(e) =>
-                  setFormData({ ...formData, slug: e.target.value })
+                  setFormData({ ...formData, description: e.target.value })
                 }
-                placeholder="cabinet-identifiant"
+                placeholder="Décrivez votre cabinet..."
                 disabled={isUpdating}
+                rows={3}
               />
             </div>
-          </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="logo">URL du logo</Label>
-            <Input
-              id="logo"
-              value={formData.logo}
-              onChange={(e) =>
-                setFormData({ ...formData, logo: e.target.value })
-              }
-              placeholder="https://example.com/logo.png"
-              disabled={isUpdating}
-            />
-          </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertTitle>Erreur</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              placeholder="Décrivez votre cabinet..."
-              disabled={isUpdating}
-              rows={3}
-            />
-          </div>
+            {success && (
+              <Alert>
+                <CheckCircle />
+                <AlertTitle>Succès</AlertTitle>
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertTitle>Erreur</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {success && (
-            <Alert>
-              <CheckCircle />
-              <AlertTitle>Succès</AlertTitle>
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
-
-          <Button type="submit" disabled={isUpdating}>
-            {isUpdating ? "Mise à jour..." : "Mettre à jour le cabinet"}
-          </Button>
-        </form>
-      </div>
-
-      <Separator />
-
-      {/* Public Booking Settings */}
-      <div className="space-y-6">
-        <PublicBookingSettings />
-      </div>
-
-      <Separator />
-
-      {/* Stripe Settings */}
-      <div className="space-y-6">
-        <StripeSettings />
-      </div>
-
-      <Separator />
-
-      {/* Online Conferencing Settings */}
-      <div className="space-y-6">
-        <OnlineConferencingSettings />
-      </div>
-
-      <Separator />
-
-      {/* Appointment Types Management */}
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-medium">Types de rendez-vous</h3>
-          <p className="text-muted-foreground">
-            Gérez les types de rendez-vous et leurs durées par défaut
-          </p>
+            <Button type="submit" disabled={isUpdating}>
+              {isUpdating ? "Mise à jour..." : "Mettre à jour le cabinet"}
+            </Button>
+          </form>
         </div>
-        <AppointmentTypesManager />
+
+        <Separator />
+
+        {/* Public Booking Settings */}
+        <div className="space-y-6">
+          <PublicBookingSettings />
+        </div>
+
+        <Separator />
+
+        {/* Stripe Settings */}
+        <div className="space-y-6">
+          <StripeSettings />
+        </div>
+
+        <Separator />
+
+        {/* Online Conferencing Settings */}
+        <div className="space-y-6">
+          <OnlineConferencingSettings />
+        </div>
+
+        <Separator />
+
+        {/* Appointment Types Management */}
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-medium">Types de rendez-vous</h3>
+            <p className="text-muted-foreground">
+              Gérez les types de rendez-vous et leurs durées par défaut
+            </p>
+          </div>
+          <AppointmentTypesManager />
+        </div>
+
+        <Separator />
+
+        {/* Danger Zone */}
+        <Card className="border-destructive/20">
+          <CardHeader>
+            <CardTitle className="text-destructive">Zone de danger</CardTitle>
+            <CardDescription>
+              Actions irréversibles et destructives
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <h4 className="mb-2 font-medium">Supprimer le cabinet</h4>
+                <p className="text-muted-foreground mb-4 text-sm">
+                  Une fois que vous supprimez un cabinet, il n'y a pas de retour
+                  en arrière. Veuillez être certain.
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteOrganization}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Suppression..." : "Supprimer le cabinet"}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Separator />
-
-      {/* Danger Zone */}
-      <Card className="border-destructive/20">
-        <CardHeader>
-          <CardTitle className="text-destructive">Zone de danger</CardTitle>
-          <CardDescription>
-            Actions irréversibles et destructives
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h4 className="mb-2 font-medium">Supprimer le cabinet</h4>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Une fois que vous supprimez un cabinet, il n'y a pas de retour
-                en arrière. Veuillez être certain.
-              </p>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteOrganization}
-                disabled={isDeleting}
-              >
-                {isDeleting ? "Suppression..." : "Supprimer le cabinet"}
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      {/* Sticky Save Bar */}
+      <StickySaveBar />
+    </OrganizationSettingsProvider>
   );
 }

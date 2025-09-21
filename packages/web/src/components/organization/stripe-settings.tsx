@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "@/trpc/react";
-import { toast } from "sonner";
+import { useOrganizationSettings } from "@/contexts/organization-settings-context";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,8 +33,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 // Form validation schema
@@ -47,14 +46,17 @@ const stripeSettingsSchema = z.object({
 type StripeSettingsValues = z.infer<typeof stripeSettingsSchema>;
 
 export function StripeSettings() {
-  const [isUpdating, setIsUpdating] = useState(false);
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
-  const utils = api.useUtils();
-
-  // Get current organization data
-  const { data: organizationData } = api.organizations.getCurrent.useQuery();
+  // Use global settings context
+  const {
+    organizationData,
+    isUpdating,
+    saveSettings,
+    registerChanges,
+    clearChanges,
+  } = useOrganizationSettings();
 
   // Form setup
   const form = useForm<StripeSettingsValues>({
@@ -70,56 +72,64 @@ export function StripeSettings() {
   // Initialize form data when organization is loaded
   useEffect(() => {
     if (organizationData) {
-      form.reset({
+      const initialValues = {
         stripeEnabled: organizationData.stripeEnabled || false,
         stripePublishableKey: organizationData.stripePublishableKey || "",
         stripeSecretKey: organizationData.stripeSecretKey || "",
         stripeWebhookSecret: organizationData.stripeWebhookSecret || "",
-      });
+      };
+      form.reset(initialValues);
+      // Clear any pending changes for this component
+      clearChanges("stripe-settings");
     }
-  }, [organizationData, form]);
+  }, [organizationData, form, clearChanges]);
 
-  // Update organization mutation
-  const updateOrganization = api.organizations.update.useMutation({
-    onSuccess: async () => {
-      toast.success("Paramètres Stripe mis à jour avec succès");
-      await utils.organizations.getCurrent.invalidate();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Échec de la mise à jour des paramètres");
-    },
-  });
+  // Watch for specific form fields to avoid infinite loops
+  const stripeEnabled = form.watch("stripeEnabled");
+  const stripePublishableKey = form.watch("stripePublishableKey");
+  const stripeSecretKey = form.watch("stripeSecretKey");
+  const stripeWebhookSecret = form.watch("stripeWebhookSecret");
 
-  const onSubmit = async (values: StripeSettingsValues) => {
+  useEffect(() => {
     if (!organizationData) return;
 
-    // Validate that if Stripe is enabled, required keys are provided
-    if (values.stripeEnabled) {
-      if (!values.stripePublishableKey?.trim()) {
-        toast.error("La clé publique Stripe est requise");
-        return;
-      }
-      if (!values.stripeSecretKey?.trim()) {
-        toast.error("La clé secrète Stripe est requise");
-        return;
-      }
-    }
+    const timeoutId = setTimeout(() => {
+      const originalValues = {
+        stripeEnabled: organizationData.stripeEnabled || false,
+        stripePublishableKey: organizationData.stripePublishableKey || "",
+        stripeSecretKey: organizationData.stripeSecretKey || "",
+        stripeWebhookSecret: organizationData.stripeWebhookSecret || "",
+      };
 
-    setIsUpdating(true);
-    try {
-      await updateOrganization.mutateAsync({
-        id: organizationData.id,
-        stripeEnabled: values.stripeEnabled,
-        stripePublishableKey: values.stripePublishableKey?.trim() || null,
-        stripeSecretKey: values.stripeSecretKey?.trim() || null,
-        stripeWebhookSecret: values.stripeWebhookSecret?.trim() || null,
-      });
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+      // Check if values have changed
+      const hasChanges =
+        stripeEnabled !== originalValues.stripeEnabled ||
+        stripePublishableKey !== originalValues.stripePublishableKey ||
+        stripeSecretKey !== originalValues.stripeSecretKey ||
+        stripeWebhookSecret !== originalValues.stripeWebhookSecret;
 
-  const stripeEnabled = form.watch("stripeEnabled");
+      if (hasChanges) {
+        registerChanges("stripe-settings", {
+          stripeEnabled,
+          stripePublishableKey: stripePublishableKey?.trim() || null,
+          stripeSecretKey: stripeSecretKey?.trim() || null,
+          stripeWebhookSecret: stripeWebhookSecret?.trim() || null,
+        });
+      } else {
+        clearChanges("stripe-settings");
+      }
+    }, 100); // 100ms debounce to prevent excessive updates
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    stripeEnabled,
+    stripePublishableKey,
+    stripeSecretKey,
+    stripeWebhookSecret,
+    organizationData,
+    registerChanges,
+    clearChanges,
+  ]);
 
   if (!organizationData) {
     return (
@@ -153,7 +163,7 @@ export function StripeSettings() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <div className="space-y-6">
             {/* Enable Stripe Toggle */}
             <FormField
               control={form.control}
@@ -335,19 +345,7 @@ export function StripeSettings() {
                   )}
               </>
             )}
-
-            {/* Save Button */}
-            <div className="flex justify-end">
-              <Button type="submit" disabled={isUpdating}>
-                {isUpdating && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isUpdating
-                  ? "Enregistrement..."
-                  : "Enregistrer les paramètres"}
-              </Button>
-            </div>
-          </form>
+          </div>
         </Form>
       </CardContent>
     </Card>
