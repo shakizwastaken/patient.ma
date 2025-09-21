@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/trpc/react";
 import { format, addDays, startOfDay } from "date-fns";
+import { fr } from "date-fns/locale";
 import {
-  Calendar,
+  CalendarIcon,
   Clock,
   User,
   Mail,
@@ -13,7 +14,11 @@ import {
   Video,
   CheckCircle,
 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -21,8 +26,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -31,37 +44,68 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
-interface PatientInfo {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phoneNumber: string;
-}
+// Form validation schema
+const bookingFormSchema = z.object({
+  appointmentType: z.string({
+    required_error: "Veuillez sélectionner un type de rendez-vous.",
+  }),
+  date: z.date({
+    required_error: "Veuillez sélectionner une date.",
+  }),
+  firstName: z.string().min(2, {
+    message: "Le prénom doit contenir au moins 2 caractères.",
+  }),
+  lastName: z.string().min(2, {
+    message: "Le nom de famille doit contenir au moins 2 caractères.",
+  }),
+  email: z.string().email({
+    message: "Veuillez entrer une adresse e-mail valide.",
+  }),
+  phoneNumber: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+type BookingFormValues = z.infer<typeof bookingFormSchema>;
+
+// Add default values to fix the date field
+const defaultValues: Partial<BookingFormValues> = {
+  appointmentType: "",
+  firstName: "",
+  lastName: "",
+  email: "",
+  phoneNumber: "",
+  notes: "",
+};
 
 export default function PublicBookingPage() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const [selectedDate, setSelectedDate] = useState<string>("");
-  const [selectedSlot, setSelectedSlot] = useState<{
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [meetingLink, setMeetingLink] = useState<string | null>(null);
+
+  // Form setup
+  const form = useForm<BookingFormValues>({
+    resolver: zodResolver(bookingFormSchema),
+    defaultValues,
+  });
+
+  const selectedDate = form.watch("date");
+  const selectedAppointmentType = form.watch("appointmentType");
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<{
     startTime: Date;
     endTime: Date;
   } | null>(null);
-  const [selectedAppointmentType, setSelectedAppointmentType] =
-    useState<string>("");
-  const [patientInfo, setPatientInfo] = useState<PatientInfo>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phoneNumber: "",
-  });
-  const [notes, setNotes] = useState("");
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [meetingLink, setMeetingLink] = useState<string | null>(null);
 
   // Fetch organization details
   const {
@@ -80,7 +124,10 @@ export default function PublicBookingPage() {
   // Fetch available slots for selected date
   const { data: slotsData, isLoading: slotsLoading } =
     api.publicBooking.getAvailableSlots.useQuery(
-      { slug, date: selectedDate },
+      {
+        slug,
+        date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : "",
+      },
       { enabled: !!organization && !!selectedDate },
     );
 
@@ -95,44 +142,38 @@ export default function PublicBookingPage() {
     },
   });
 
-  const handleDateChange = (date: string) => {
-    setSelectedDate(date);
-    setSelectedSlot(null);
-  };
-
   const handleSlotSelect = (slot: { startTime: Date; endTime: Date }) => {
-    setSelectedSlot(slot);
+    setSelectedTimeSlot(slot);
   };
 
-  const handleBooking = () => {
-    if (!selectedSlot || !selectedAppointmentType || !organization) return;
+  const onSubmit = (values: BookingFormValues) => {
+    if (!selectedTimeSlot || !organization) return;
 
     bookAppointment.mutate({
       slug,
-      appointmentTypeId: selectedAppointmentType,
-      startTime: selectedSlot.startTime,
-      endTime: selectedSlot.endTime,
-      patientInfo,
-      notes: notes || undefined,
+      appointmentTypeId: values.appointmentType,
+      startTime: selectedTimeSlot.startTime,
+      endTime: selectedTimeSlot.endTime,
+      patientInfo: {
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        phoneNumber: values.phoneNumber || "",
+      },
+      notes: values.notes || undefined,
     });
   };
 
-  const isFormValid =
-    selectedSlot &&
-    selectedAppointmentType &&
-    patientInfo.firstName &&
-    patientInfo.lastName &&
-    patientInfo.email;
+  // Filter available dates for calendar
+  const availableDates =
+    availableDatesData?.availableDates?.map((d) => new Date(d.date)) || [];
 
-  // Use available dates from API instead of generating all dates
-  const dateOptions = availableDatesData?.availableDates || [];
-
-  // Automatically select the first available date when data loads
-  useEffect(() => {
-    if (dateOptions.length > 0 && !selectedDate) {
-      setSelectedDate(dateOptions[0].date);
-    }
-  }, [dateOptions, selectedDate]);
+  const isDateAvailable = (date: Date) => {
+    return availableDates.some(
+      (availableDate) =>
+        format(availableDate, "yyyy-MM-dd") === format(date, "yyyy-MM-dd"),
+    );
+  };
 
   if (orgLoading) {
     return (
@@ -183,11 +224,18 @@ export default function PublicBookingPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2 text-center">
               <p className="font-medium">
-                {format(selectedSlot!.startTime, "EEEE, MMMM d, yyyy")}
+                {selectedTimeSlot &&
+                  format(selectedTimeSlot.startTime, "EEEE, MMMM d, yyyy", {
+                    locale: fr,
+                  })}
               </p>
               <p className="text-gray-600">
-                {format(selectedSlot!.startTime, "h:mm a")} -{" "}
-                {format(selectedSlot!.endTime, "h:mm a")}
+                {selectedTimeSlot && (
+                  <>
+                    {format(selectedTimeSlot.startTime, "HH:mm")} -{" "}
+                    {format(selectedTimeSlot.endTime, "HH:mm")}
+                  </>
+                )}
               </p>
               {meetingLink && (
                 <div className="mt-4 rounded-lg bg-blue-50 p-3">
@@ -216,8 +264,8 @@ export default function PublicBookingPage() {
             </div>
             <Alert>
               <AlertDescription>
-                Un e-mail de confirmation a été envoyé à {patientInfo.email}{" "}
-                avec tous les détails.
+                Un e-mail de confirmation a été envoyé à{" "}
+                {form.getValues("email")} avec tous les détails.
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -255,344 +303,423 @@ export default function PublicBookingPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Booking Form */}
-          <div className="space-y-6">
-            {/* Appointment Type Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Sélectionner le type de rendez-vous
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Select
-                  value={selectedAppointmentType}
-                  onValueChange={setSelectedAppointmentType}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choisir le type de rendez-vous" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {organization.appointmentTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-3 w-3 rounded-full"
-                            style={{ backgroundColor: type.color || "#3b82f6" }}
-                          />
-                          <span>{type.name}</span>
-                          <span className="text-gray-500">
-                            ({type.defaultDurationMinutes} min)
-                          </span>
-                          {organization.config.onlineConferencingEnabled &&
-                            type.id ===
-                              organization.config
-                                .onlineConferencingAppointmentTypeId && (
-                              <Badge variant="secondary" className="ml-2">
-                                <Video className="mr-1 h-3 w-3" />
-                                En ligne
-                              </Badge>
-                            )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedAppointmentTypeData?.description && (
-                  <p className="mt-2 text-sm text-gray-600">
-                    {selectedAppointmentTypeData.description}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Date Selection */}
-            {selectedAppointmentType && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Sélectionner la date
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Select value={selectedDate} onValueChange={handleDateChange}>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          datesLoading
-                            ? "Chargement des dates..."
-                            : "Sélectionner une date"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {datesLoading ? (
-                        <SelectItem value="" disabled>
-                          Chargement des dates disponibles...
-                        </SelectItem>
-                      ) : dateOptions.length === 0 ? (
-                        <SelectItem value="" disabled>
-                          Aucune date disponible
-                        </SelectItem>
-                      ) : (
-                        dateOptions.map((option) => (
-                          <SelectItem key={option.date} value={option.date}>
-                            <div className="flex w-full items-center justify-between">
-                              <span>{option.label}</span>
-                              <span className="ml-2 text-xs text-gray-500">
-                                {option.availableSlots} créneau
-                                {option.availableSlots !== 1 ? "x" : ""}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+              {/* Booking Form */}
+              <div className="space-y-6">
+                {/* Appointment Type Selection */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CalendarIcon className="h-5 w-5" />
+                      Sélectionner le type de rendez-vous
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <FormField
+                      control={form.control}
+                      name="appointmentType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Choisir le type de rendez-vous" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {organization.appointmentTypes.map((type) => (
+                                  <SelectItem key={type.id} value={type.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        className="h-3 w-3 rounded-full"
+                                        style={{
+                                          backgroundColor:
+                                            type.color || "#3b82f6",
+                                        }}
+                                      />
+                                      <span>{type.name}</span>
+                                      <span className="text-gray-500">
+                                        ({type.defaultDurationMinutes} min)
+                                      </span>
+                                      {organization.config
+                                        .onlineConferencingEnabled &&
+                                        type.id ===
+                                          organization.config
+                                            .onlineConferencingAppointmentTypeId && (
+                                          <Badge
+                                            variant="secondary"
+                                            className="ml-2"
+                                          >
+                                            <Video className="mr-1 h-3 w-3" />
+                                            En ligne
+                                          </Badge>
+                                        )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Time Slot Selection */}
-            {selectedDate && selectedAppointmentType && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Sélectionner l'heure
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {slotsLoading ? (
-                    <div className="py-4 text-center">
-                      <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
-                    </div>
-                  ) : slotsData?.slots.length === 0 ? (
-                    <p className="py-4 text-center text-gray-500">
-                      Aucun créneau disponible pour cette date. Veuillez
-                      sélectionner une autre date.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {slotsData?.slots.map((slot, index) => (
-                        <Button
-                          key={index}
-                          variant={
-                            selectedSlot?.startTime.getTime() ===
-                            slot.startTime.getTime()
-                              ? "default"
-                              : "outline"
-                          }
-                          size="sm"
-                          onClick={() => handleSlotSelect(slot)}
-                          className="justify-center"
-                        >
-                          {format(new Date(slot.startTime), "h:mm a")}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Patient Information */}
-          <div className="space-y-6">
-            {selectedSlot && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    Vos informations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="firstName">Prénom *</Label>
-                      <Input
-                        id="firstName"
-                        value={patientInfo.firstName}
-                        onChange={(e) =>
-                          setPatientInfo({
-                            ...patientInfo,
-                            firstName: e.target.value,
-                          })
+                    />
+                    {selectedAppointmentType && (
+                      <FormDescription className="mt-2">
+                        {
+                          organization.appointmentTypes.find(
+                            (t) => t.id === selectedAppointmentType,
+                          )?.description
                         }
-                        placeholder="Jean"
+                      </FormDescription>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Date Selection */}
+                {selectedAppointmentType && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CalendarIcon className="h-5 w-5" />
+                        Sélectionner la date
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <FormField
+                        control={form.control}
+                        name="date"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground",
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "PPP", { locale: fr })
+                                    ) : (
+                                      <span>Sélectionner une date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
+                              >
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={(date) => {
+                                    field.onChange(date);
+                                    // Reset time slot when date changes
+                                    setSelectedTimeSlot(null);
+                                  }}
+                                  disabled={(date) =>
+                                    date < new Date() || !isDateAvailable(date)
+                                  }
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormDescription>
+                              Sélectionnez une date disponible pour votre
+                              rendez-vous.
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="lastName">Nom de famille *</Label>
-                      <Input
-                        id="lastName"
-                        value={patientInfo.lastName}
-                        onChange={(e) =>
-                          setPatientInfo({
-                            ...patientInfo,
-                            lastName: e.target.value,
-                          })
-                        }
-                        placeholder="Dupont"
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Time Slot Selection */}
+                {selectedDate && selectedAppointmentType && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Sélectionner l'heure
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {slotsLoading ? (
+                        <div className="py-4 text-center">
+                          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                        </div>
+                      ) : slotsData?.slots.length === 0 ? (
+                        <p className="py-4 text-center text-gray-500">
+                          Aucun créneau disponible pour cette date. Veuillez
+                          sélectionner une autre date.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          {slotsData?.slots.map((slot, index) => (
+                            <Button
+                              key={index}
+                              type="button"
+                              variant={
+                                selectedTimeSlot?.startTime.getTime() ===
+                                slot.startTime.getTime()
+                                  ? "default"
+                                  : "outline"
+                              }
+                              size="sm"
+                              onClick={() => handleSlotSelect(slot)}
+                              className="justify-center"
+                            >
+                              {format(new Date(slot.startTime), "HH:mm")}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Patient Information */}
+              <div className="space-y-6">
+                {selectedTimeSlot && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="h-5 w-5" />
+                        Vos informations
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Prénom *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Jean" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nom de famille *</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Dupont" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email *</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="jean.dupont@exemple.com"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={patientInfo.email}
-                      onChange={(e) =>
-                        setPatientInfo({
-                          ...patientInfo,
-                          email: e.target.value,
-                        })
-                      }
-                      placeholder="jean.dupont@exemple.com"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="phoneNumber">Numéro de téléphone</Label>
-                    <Input
-                      id="phoneNumber"
-                      value={patientInfo.phoneNumber}
-                      onChange={(e) =>
-                        setPatientInfo({
-                          ...patientInfo,
-                          phoneNumber: e.target.value,
-                        })
-                      }
-                      placeholder="+212 6 12 34 56 78"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="notes">Notes supplémentaires</Label>
-                    <Textarea
-                      id="notes"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Toute information supplémentaire ou demande particulière..."
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                      <FormField
+                        control={form.control}
+                        name="phoneNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Numéro de téléphone</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="+212 6 12 34 56 78"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="notes"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Notes supplémentaires</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                placeholder="Toute information supplémentaire ou demande particulière..."
+                                rows={3}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </CardContent>
+                  </Card>
+                )}
 
-            {/* Booking Summary & Confirmation */}
-            {selectedSlot && isFormValid && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Récapitulatif de la réservation</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">
-                        Type de rendez-vous :
-                      </span>
-                      <span className="font-medium">
-                        {selectedAppointmentTypeData?.name}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Date :</span>
-                      <span className="font-medium">
-                        {format(selectedSlot.startTime, "EEEE, MMMM d, yyyy")}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Heure :</span>
-                      <span className="font-medium">
-                        {format(selectedSlot.startTime, "h:mm a")} -{" "}
-                        {format(selectedSlot.endTime, "h:mm a")}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Durée :</span>
-                      <span className="font-medium">
-                        {selectedAppointmentTypeData?.defaultDurationMinutes}{" "}
-                        minutes
-                      </span>
-                    </div>
-                    {isOnlineAppointment && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Type de réunion :</span>
-                        <Badge variant="secondary" className="ml-2">
-                          <Video className="mr-1 h-3 w-3" />
-                          Réunion en ligne
-                        </Badge>
+                {/* Booking Summary & Confirmation */}
+                {selectedTimeSlot && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Récapitulatif de la réservation</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">
+                            Type de rendez-vous :
+                          </span>
+                          <span className="font-medium">
+                            {
+                              organization.appointmentTypes.find(
+                                (t) => t.id === selectedAppointmentType,
+                              )?.name
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Date :</span>
+                          <span className="font-medium">
+                            {selectedDate &&
+                              format(selectedDate, "EEEE, MMMM d, yyyy", {
+                                locale: fr,
+                              })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Heure :</span>
+                          <span className="font-medium">
+                            {format(selectedTimeSlot.startTime, "HH:mm")} -{" "}
+                            {format(selectedTimeSlot.endTime, "HH:mm")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Durée :</span>
+                          <span className="font-medium">
+                            {
+                              organization.appointmentTypes.find(
+                                (t) => t.id === selectedAppointmentType,
+                              )?.defaultDurationMinutes
+                            }{" "}
+                            minutes
+                          </span>
+                        </div>
+                        {organization.config.onlineConferencingEnabled &&
+                          organization.appointmentTypes.find(
+                            (t) => t.id === selectedAppointmentType,
+                          )?.id ===
+                            organization.config
+                              .onlineConferencingAppointmentTypeId && (
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">
+                                Type de réunion :
+                              </span>
+                              <Badge variant="secondary">
+                                <Video className="mr-1 h-3 w-3" />
+                                Réunion en ligne
+                              </Badge>
+                            </div>
+                          )}
                       </div>
-                    )}
-                  </div>
 
-                  <Separator />
+                      <Separator />
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Patient :</span>
-                      <span className="font-medium">
-                        {patientInfo.firstName} {patientInfo.lastName}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Email :</span>
-                      <span className="font-medium">{patientInfo.email}</span>
-                    </div>
-                    {patientInfo.phoneNumber && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Téléphone :</span>
-                        <span className="font-medium">
-                          {patientInfo.phoneNumber}
-                        </span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Patient :</span>
+                          <span className="font-medium">
+                            {form.watch("firstName")} {form.watch("lastName")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Email :</span>
+                          <span className="font-medium">
+                            {form.watch("email")}
+                          </span>
+                        </div>
+                        {form.watch("phoneNumber") && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Téléphone :</span>
+                            <span className="font-medium">
+                              {form.watch("phoneNumber")}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  {isOnlineAppointment && (
-                    <Alert>
-                      <Video className="h-4 w-4" />
-                      <AlertDescription>
-                        This is an online appointment. A meeting link will be
-                        sent to your email after booking.
-                      </AlertDescription>
-                    </Alert>
-                  )}
+                      {organization.config.onlineConferencingEnabled &&
+                        organization.appointmentTypes.find(
+                          (t) => t.id === selectedAppointmentType,
+                        )?.id ===
+                          organization.config
+                            .onlineConferencingAppointmentTypeId && (
+                          <Alert>
+                            <Video className="h-4 w-4" />
+                            <AlertDescription>
+                              Il s'agit d'un rendez-vous en ligne. Un lien de
+                              réunion sera envoyé à votre e-mail après la
+                              réservation.
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
-                  <Button
-                    onClick={handleBooking}
-                    disabled={!isFormValid || bookAppointment.isPending}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {bookAppointment.isPending ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                        Booking...
-                      </div>
-                    ) : (
-                      "Confirm Booking"
-                    )}
-                  </Button>
+                      <Button
+                        type="submit"
+                        disabled={bookAppointment.isPending}
+                        className="w-full"
+                        size="lg"
+                      >
+                        {bookAppointment.isPending ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
+                            Réservation...
+                          </div>
+                        ) : (
+                          "Confirmer la réservation"
+                        )}
+                      </Button>
 
-                  {bookAppointment.error && (
-                    <Alert variant="destructive">
-                      <AlertDescription>
-                        {bookAppointment.error.message ||
-                          "Failed to book appointment. Please try again."}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+                      {bookAppointment.error && (
+                        <Alert variant="destructive">
+                          <AlertDescription>
+                            {bookAppointment.error.message ||
+                              "Échec de la réservation. Veuillez réessayer."}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </form>
+        </Form>
       </div>
     </div>
   );
