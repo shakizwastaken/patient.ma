@@ -113,11 +113,25 @@ function generateTimeSlots(
   slotDurationMinutes: number,
   bufferTimeMinutes: number,
   timezone: string,
+  scheduleOverrides: any[] = [],
+  sameDayBookingAllowed: boolean = true,
 ) {
   const dayOfWeek = date.getDay();
   const dayAvailability = availability.find((av) => av.dayOfWeek === dayOfWeek);
 
   if (!dayAvailability || !dayAvailability.isAvailable) {
+    return [];
+  }
+
+  // Check for schedule overrides that affect this date
+  const dateOverrides = scheduleOverrides.filter((override) => {
+    const overrideStart = new Date(override.startDate);
+    const overrideEnd = new Date(override.endDate);
+    return date >= overrideStart && date <= overrideEnd;
+  });
+
+  // If there's an "unavailable" override for this date, return no slots
+  if (dateOverrides.some((override) => override.type === "unavailable")) {
     return [];
   }
 
@@ -133,7 +147,30 @@ function generateTimeSlots(
   const endTime = new Date(date);
   endTime.setHours(endHour, endMinute, 0, 0);
 
+  // For today, ensure we don't show past time slots
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+
+  // If same-day booking is not allowed and it's today, return no slots
+  if (isToday && !sameDayBookingAllowed) {
+    return [];
+  }
+
   let currentTime = new Date(startTime);
+
+  // If it's today, start from the current time + buffer
+  if (isToday) {
+    const minimumStartTime = addMinutes(now, bufferTimeMinutes + 15); // 15 min minimum notice
+    if (minimumStartTime > currentTime) {
+      currentTime = new Date(minimumStartTime);
+      // Round up to next slot boundary
+      const minutesPastHour = currentTime.getMinutes();
+      const slotsPerHour = 60 / slotDurationMinutes;
+      const slotSize = 60 / slotsPerHour;
+      const nextSlotMinute = Math.ceil(minutesPastHour / slotSize) * slotSize;
+      currentTime.setMinutes(nextSlotMinute, 0, 0);
+    }
+  }
 
   while (currentTime < endTime) {
     const slotEnd = addMinutes(currentTime, slotDurationMinutes);
@@ -150,7 +187,32 @@ function generateTimeSlots(
         );
       });
 
-      if (!hasConflict) {
+      // Check if slot conflicts with schedule overrides
+      const hasOverrideConflict = dateOverrides.some((override) => {
+        if (override.type !== "reduced_hours") return false;
+
+        // For reduced hours, check if the slot is within the allowed time
+        if (override.startTime && override.endTime) {
+          const [overrideStartHour, overrideStartMinute] = override.startTime
+            .split(":")
+            .map(Number);
+          const [overrideEndHour, overrideEndMinute] = override.endTime
+            .split(":")
+            .map(Number);
+
+          const overrideStart = new Date(date);
+          overrideStart.setHours(overrideStartHour, overrideStartMinute, 0, 0);
+
+          const overrideEnd = new Date(date);
+          overrideEnd.setHours(overrideEndHour, overrideEndMinute, 0, 0);
+
+          // Slot is NOT available if it's outside the reduced hours
+          return currentTime < overrideStart || slotEnd > overrideEnd;
+        }
+        return false;
+      });
+
+      if (!hasConflict && !hasOverrideConflict) {
         slots.push({
           startTime: new Date(currentTime),
           endTime: new Date(slotEnd),
@@ -341,6 +403,18 @@ export const publicBookingRouter = createTRPCRouter({
               ),
             );
 
+          // Get schedule overrides for this date
+          const scheduleOverrides = await ctx.db
+            .select()
+            .from(organizationScheduleOverride)
+            .where(
+              and(
+                eq(organizationScheduleOverride.organizationId, org[0].id),
+                lte(organizationScheduleOverride.startDate, currentDate),
+                gte(organizationScheduleOverride.endDate, currentDate),
+              ),
+            );
+
           // Generate slots for this date to check if any are available
           const slots = generateTimeSlots(
             availability,
@@ -349,6 +423,8 @@ export const publicBookingRouter = createTRPCRouter({
             appointmentConfig.slotDurationMinutes,
             appointmentConfig.bufferTimeMinutes,
             org[0].timezone,
+            scheduleOverrides,
+            appointmentConfig.sameDayBookingAllowed,
           );
 
           // Only include the date if there are available slots
@@ -421,6 +497,18 @@ export const publicBookingRouter = createTRPCRouter({
           ),
         );
 
+      // Get schedule overrides for this date
+      const scheduleOverrides = await ctx.db
+        .select()
+        .from(organizationScheduleOverride)
+        .where(
+          and(
+            eq(organizationScheduleOverride.organizationId, org[0].id),
+            lte(organizationScheduleOverride.startDate, selectedDate),
+            gte(organizationScheduleOverride.endDate, selectedDate),
+          ),
+        );
+
       // Get appointment configuration
       const config = await ctx.db
         .select()
@@ -431,6 +519,7 @@ export const publicBookingRouter = createTRPCRouter({
       const appointmentConfig = config[0] || {
         slotDurationMinutes: 30,
         bufferTimeMinutes: 0,
+        sameDayBookingAllowed: true,
       };
 
       // Generate available slots
@@ -441,6 +530,8 @@ export const publicBookingRouter = createTRPCRouter({
         appointmentConfig.slotDurationMinutes,
         appointmentConfig.bufferTimeMinutes,
         org[0].timezone,
+        scheduleOverrides,
+        appointmentConfig.sameDayBookingAllowed,
       );
 
       return {
