@@ -14,7 +14,7 @@ import {
 
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
 import { GoogleCalendarService, emailService } from "@acme/shared/server";
-import { addMinutes, format, startOfDay, endOfDay } from "date-fns";
+import { addMinutes, addDays, format, startOfDay, endOfDay } from "date-fns";
 
 // Helper function to create Google Meet link if needed (copied from appointments.ts)
 async function createMeetingLinkIfNeeded(
@@ -177,6 +177,12 @@ const getAvailableSlotsSchema = z.object({
   date: z.string(), // ISO date string
 });
 
+const getAvailableDatesSchema = z.object({
+  slug: z.string(),
+  startDate: z.string().optional(), // ISO date string
+  endDate: z.string().optional(), // ISO date string
+});
+
 const bookAppointmentSchema = z.object({
   slug: z.string(),
   appointmentTypeId: z.string().uuid(),
@@ -251,6 +257,117 @@ export const publicBookingRouter = createTRPCRouter({
           sameDayBookingAllowed: true,
           onlineConferencingEnabled: false,
         },
+      };
+    }),
+
+  // Get available dates for public booking
+  getAvailableDates: publicProcedure
+    .input(getAvailableDatesSchema)
+    .query(async ({ ctx, input }) => {
+      const org = await ctx.db
+        .select({
+          id: organization.id,
+          timezone: organization.timezone,
+          publicBookingEnabled: organization.publicBookingEnabled,
+        })
+        .from(organization)
+        .where(
+          and(
+            eq(organization.slug, input.slug),
+            eq(organization.publicBookingEnabled, true),
+          ),
+        )
+        .limit(1);
+
+      if (!org[0]) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Organization not found or public booking not enabled",
+        });
+      }
+
+      // Get appointment configuration for advance booking days
+      const config = await ctx.db
+        .select()
+        .from(organizationAppointmentConfig)
+        .where(eq(organizationAppointmentConfig.organizationId, org[0].id))
+        .limit(1);
+
+      const appointmentConfig = config[0] || {
+        slotDurationMinutes: 30,
+        bufferTimeMinutes: 0,
+        advanceBookingDays: 30,
+        sameDayBookingAllowed: true,
+      };
+
+      // Get organization availability
+      const availability = await ctx.db
+        .select()
+        .from(organizationAvailability)
+        .where(eq(organizationAvailability.organizationId, org[0].id));
+
+      // Calculate date range
+      const today = new Date();
+      const startDate = input.startDate ? new Date(input.startDate) : today;
+      const endDate = input.endDate
+        ? new Date(input.endDate)
+        : addDays(today, appointmentConfig.advanceBookingDays);
+
+      const availableDates = [];
+      const currentDate = new Date(startDate);
+
+      // Check each date in the range
+      while (currentDate <= endDate) {
+        const dayOfWeek = currentDate.getDay();
+        const dayAvailability = availability.find(
+          (av) => av.dayOfWeek === dayOfWeek,
+        );
+
+        // Only include dates where the organization has availability
+        if (dayAvailability && dayAvailability.isAvailable) {
+          // Get existing appointments for this date to check if there are any available slots
+          const existingAppointments = await ctx.db
+            .select({
+              startTime: appointment.startTime,
+              endTime: appointment.endTime,
+            })
+            .from(appointment)
+            .where(
+              and(
+                eq(appointment.organizationId, org[0].id),
+                gte(appointment.startTime, startOfDay(currentDate)),
+                lte(appointment.startTime, endOfDay(currentDate)),
+                eq(appointment.status, "scheduled"),
+              ),
+            );
+
+          // Generate slots for this date to check if any are available
+          const slots = generateTimeSlots(
+            availability,
+            existingAppointments,
+            currentDate,
+            appointmentConfig.slotDurationMinutes,
+            appointmentConfig.bufferTimeMinutes,
+            org[0].timezone,
+          );
+
+          // Only include the date if there are available slots
+          if (slots.length > 0) {
+            availableDates.push({
+              date: format(currentDate, "yyyy-MM-dd"),
+              label: format(currentDate, "EEEE, MMMM d"),
+              availableSlots: slots.length,
+            });
+          }
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return {
+        availableDates,
+        timezone: org[0].timezone,
       };
     }),
 
