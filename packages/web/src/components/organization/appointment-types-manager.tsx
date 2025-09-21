@@ -35,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -62,20 +63,56 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Edit, Trash2, Clock, Palette, Eye, EyeOff } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Clock,
+  Palette,
+  Eye,
+  EyeOff,
+  AlertCircle,
+} from "lucide-react";
+import {
+  useStripeProducts,
+  useStripePrices,
+  useStripeConfiguration,
+  formatStripePrice,
+  getPriceType,
+} from "@/hooks/use-stripe-data";
+import { useOrganizationSettings } from "@/contexts/organization-settings-context";
 
 // Form schemas
-const appointmentTypeSchema = z.object({
-  name: z.string().min(1, "Le nom est requis").max(100, "Nom trop long"),
-  description: z.string().optional(),
-  defaultDurationMinutes: z
-    .number()
-    .min(5, "La durée minimum est de 5 minutes")
-    .max(480, "La durée maximum est de 8 heures"),
-  color: z
-    .string()
-    .regex(/^#[0-9A-F]{6}$/i, "Format de couleur invalide (hex)"),
-});
+const appointmentTypeSchema = z
+  .object({
+    name: z.string().min(1, "Le nom est requis").max(100, "Nom trop long"),
+    description: z.string().optional(),
+    defaultDurationMinutes: z
+      .number()
+      .min(5, "La durée minimum est de 5 minutes")
+      .max(480, "La durée maximum est de 8 heures"),
+    color: z
+      .string()
+      .regex(/^#[0-9A-F]{6}$/i, "Format de couleur invalide (hex)"),
+    // Payment configuration
+    requiresPayment: z.boolean().default(false),
+    stripeProductId: z.string().optional(),
+    stripePriceId: z.string().optional(),
+    paymentType: z.enum(["one_time", "subscription"]).default("one_time"),
+  })
+  .refine(
+    (data) => {
+      // If payment is required, Stripe product ID and price ID must be provided
+      if (data.requiresPayment) {
+        return data.stripeProductId && data.stripePriceId;
+      }
+      return true;
+    },
+    {
+      message: "Veuillez sélectionner un produit et un prix Stripe",
+      path: ["stripePriceId"],
+    },
+  );
 
 type AppointmentTypeFormValues = z.infer<typeof appointmentTypeSchema>;
 
@@ -110,6 +147,25 @@ export function AppointmentTypesManager() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<any>(null);
   const [showCustomColorInput, setShowCustomColorInput] = useState(false);
+
+  // Stripe configuration and data hooks
+  const { isConfigured: isStripeConfigured, loading: configLoading } =
+    useStripeConfiguration();
+  const {
+    products: stripeProducts,
+    loading: productsLoading,
+    error: productsError,
+  } = useStripeProducts();
+
+  // Track selected product for price loading
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
+  const [selectedEditProductId, setSelectedEditProductId] =
+    useState<string>("");
+
+  const { prices: stripePrices, loading: pricesLoading } =
+    useStripePrices(selectedProductId);
+  const { prices: editStripePrices, loading: editPricesLoading } =
+    useStripePrices(selectedEditProductId);
 
   const utils = api.useUtils();
 
@@ -206,7 +262,17 @@ export function AppointmentTypesManager() {
       description: type.description || "",
       defaultDurationMinutes: type.defaultDurationMinutes,
       color: type.color,
+      requiresPayment: type.requiresPayment || false,
+      stripeProductId: type.stripeProductId || "",
+      stripePriceId: type.stripePriceId || "",
+      paymentType: type.paymentType || "one_time",
     });
+
+    // Set selected product for price loading
+    if (type.stripeProductId) {
+      setSelectedEditProductId(type.stripeProductId);
+    }
+
     setIsEditDialogOpen(true);
   };
 
@@ -421,6 +487,190 @@ export function AppointmentTypesManager() {
                       )}
                     />
 
+                    {/* Payment Configuration Section */}
+                    <div className="space-y-4 border-t pt-4">
+                      <h4 className="font-medium">
+                        Configuration des paiements
+                      </h4>
+
+                      {!isStripeConfigured && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            Configurez d'abord Stripe dans les paramètres de
+                            l'organisation pour activer les paiements.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <FormField
+                        control={createForm.control}
+                        name="requiresPayment"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <FormLabel>Paiement requis</FormLabel>
+                              <FormDescription>
+                                Ce type de rendez-vous nécessite-t-il un
+                                paiement ?
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!isStripeConfigured}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      {createForm.watch("requiresPayment") &&
+                        isStripeConfigured && (
+                          <>
+                            <FormField
+                              control={createForm.control}
+                              name="stripeProductId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Produit Stripe</FormLabel>
+                                  <Select
+                                    onValueChange={(value) => {
+                                      field.onChange(value);
+                                      setSelectedProductId(value);
+                                      // Reset price selection when product changes
+                                      createForm.setValue("stripePriceId", "");
+                                      createForm.setValue(
+                                        "paymentType",
+                                        "one_time",
+                                      );
+                                    }}
+                                    value={field.value}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue
+                                          placeholder={
+                                            productsLoading
+                                              ? "Chargement des produits..."
+                                              : productsError
+                                                ? "Erreur de chargement"
+                                                : "Sélectionnez un produit"
+                                          }
+                                        />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {stripeProducts.map((product) => (
+                                        <SelectItem
+                                          key={product.id}
+                                          value={product.id}
+                                        >
+                                          <div className="flex flex-col">
+                                            <span>{product.name}</span>
+                                            {product.description && (
+                                              <span className="text-muted-foreground text-xs">
+                                                {product.description}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormDescription>
+                                    Sélectionnez le produit Stripe correspondant
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            {selectedProductId && (
+                              <FormField
+                                control={createForm.control}
+                                name="stripePriceId"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Prix</FormLabel>
+                                    <Select
+                                      onValueChange={(value) => {
+                                        field.onChange(value);
+                                        // Auto-set payment type based on selected price
+                                        const selectedPrice = stripePrices.find(
+                                          (p) => p.id === value,
+                                        );
+                                        if (selectedPrice) {
+                                          createForm.setValue(
+                                            "paymentType",
+                                            getPriceType(selectedPrice),
+                                          );
+                                        }
+                                      }}
+                                      value={field.value}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue
+                                            placeholder={
+                                              pricesLoading
+                                                ? "Chargement des prix..."
+                                                : stripePrices.length === 0
+                                                  ? "Aucun prix disponible"
+                                                  : "Sélectionnez un prix"
+                                            }
+                                          />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {stripePrices.map((price) => (
+                                          <SelectItem
+                                            key={price.id}
+                                            value={price.id}
+                                          >
+                                            <div className="flex flex-col">
+                                              <span>
+                                                {formatStripePrice(price)}
+                                              </span>
+                                              {price.nickname && (
+                                                <span className="text-muted-foreground text-xs">
+                                                  {price.nickname}
+                                                </span>
+                                              )}
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <FormDescription>
+                                      Le prix sera automatiquement appliqué lors
+                                      de la réservation
+                                    </FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+
+                            {/* Payment Type (auto-filled, read-only) */}
+                            {createForm.watch("stripePriceId") && (
+                              <div className="border-muted rounded-md border p-3">
+                                <Label className="text-sm font-medium">
+                                  Type de paiement
+                                </Label>
+                                <p className="text-muted-foreground mt-1 text-sm">
+                                  {createForm.watch("paymentType") ===
+                                  "subscription"
+                                    ? "Abonnement récurrent"
+                                    : "Paiement unique"}
+                                </p>
+                              </div>
+                            )}
+                          </>
+                        )}
+                    </div>
+
                     <DialogFooter>
                       <Button
                         type="button"
@@ -447,6 +697,7 @@ export function AppointmentTypesManager() {
                   <TableHead>Type</TableHead>
                   <TableHead>Durée</TableHead>
                   <TableHead>Couleur</TableHead>
+                  <TableHead>Paiement</TableHead>
                   <TableHead>Statut</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -480,6 +731,21 @@ export function AppointmentTypesManager() {
                           {type.color || "#3b82f6"}
                         </span>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {type.requiresPayment ? (
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            {type.paymentType === "subscription"
+                              ? "Abonnement"
+                              : "Paiement unique"}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">
+                          Gratuit
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={type.isActive ? "default" : "secondary"}>
@@ -696,6 +962,174 @@ export function AppointmentTypesManager() {
                   </FormItem>
                 )}
               />
+
+              {/* Payment Configuration Section */}
+              <div className="space-y-4 border-t pt-4">
+                <h4 className="font-medium">Configuration des paiements</h4>
+
+                {!isStripeConfigured && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Configurez d'abord Stripe dans les paramètres de
+                      l'organisation pour activer les paiements.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <FormField
+                  control={editForm.control}
+                  name="requiresPayment"
+                  render={({ field }) => (
+                    <FormItem className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <FormLabel>Paiement requis</FormLabel>
+                        <FormDescription>
+                          Ce type de rendez-vous nécessite-t-il un paiement ?
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={!isStripeConfigured}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {editForm.watch("requiresPayment") && isStripeConfigured && (
+                  <>
+                    <FormField
+                      control={editForm.control}
+                      name="stripeProductId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Produit Stripe</FormLabel>
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                              setSelectedEditProductId(value);
+                              // Reset price selection when product changes
+                              editForm.setValue("stripePriceId", "");
+                              editForm.setValue("paymentType", "one_time");
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={
+                                    productsLoading
+                                      ? "Chargement des produits..."
+                                      : productsError
+                                        ? "Erreur de chargement"
+                                        : "Sélectionnez un produit"
+                                  }
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {stripeProducts.map((product) => (
+                                <SelectItem key={product.id} value={product.id}>
+                                  <div className="flex flex-col">
+                                    <span>{product.name}</span>
+                                    {product.description && (
+                                      <span className="text-muted-foreground text-xs">
+                                        {product.description}
+                                      </span>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Sélectionnez le produit Stripe correspondant
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {selectedEditProductId && (
+                      <FormField
+                        control={editForm.control}
+                        name="stripePriceId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Prix</FormLabel>
+                            <Select
+                              onValueChange={(value) => {
+                                field.onChange(value);
+                                // Auto-set payment type based on selected price
+                                const selectedPrice = editStripePrices.find(
+                                  (p) => p.id === value,
+                                );
+                                if (selectedPrice) {
+                                  editForm.setValue(
+                                    "paymentType",
+                                    getPriceType(selectedPrice),
+                                  );
+                                }
+                              }}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={
+                                      editPricesLoading
+                                        ? "Chargement des prix..."
+                                        : editStripePrices.length === 0
+                                          ? "Aucun prix disponible"
+                                          : "Sélectionnez un prix"
+                                    }
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {editStripePrices.map((price) => (
+                                  <SelectItem key={price.id} value={price.id}>
+                                    <div className="flex flex-col">
+                                      <span>{formatStripePrice(price)}</span>
+                                      {price.nickname && (
+                                        <span className="text-muted-foreground text-xs">
+                                          {price.nickname}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              Le prix sera automatiquement appliqué lors de la
+                              réservation
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    {/* Payment Type (auto-filled, read-only) */}
+                    {editForm.watch("stripePriceId") && (
+                      <div className="border-muted rounded-md border p-3">
+                        <Label className="text-sm font-medium">
+                          Type de paiement
+                        </Label>
+                        <p className="text-muted-foreground mt-1 text-sm">
+                          {editForm.watch("paymentType") === "subscription"
+                            ? "Abonnement récurrent"
+                            : "Paiement unique"}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
 
               <DialogFooter>
                 <Button

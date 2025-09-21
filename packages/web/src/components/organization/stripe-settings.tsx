@@ -23,6 +23,7 @@ import {
   EyeOff,
   AlertCircle,
   CheckCircle2,
+  Copy,
 } from "lucide-react";
 import {
   Form,
@@ -48,6 +49,7 @@ type StripeSettingsValues = z.infer<typeof stripeSettingsSchema>;
 export function StripeSettings() {
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [copiedWebhookUrl, setCopiedWebhookUrl] = useState(false);
 
   // Use global settings context
   const {
@@ -89,6 +91,23 @@ export function StripeSettings() {
   const stripePublishableKey = form.watch("stripePublishableKey");
   const stripeSecretKey = form.watch("stripeSecretKey");
   const stripeWebhookSecret = form.watch("stripeWebhookSecret");
+
+  // Webhook URL functionality
+  const webhookUrl = organizationData?.id
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/api/stripe/webhook/${organizationData.id}`
+    : "";
+
+  const copyWebhookUrl = async () => {
+    if (!webhookUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setCopiedWebhookUrl(true);
+      setTimeout(() => setCopiedWebhookUrl(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy webhook URL:", error);
+    }
+  };
 
   useEffect(() => {
     if (!organizationData) return;
@@ -284,6 +303,36 @@ export function StripeSettings() {
                     </FormItem>
                   )}
                 />
+
+                {/* Webhook URL */}
+                {webhookUrl && (
+                  <div className="space-y-2">
+                    <Label>URL webhook Stripe</Label>
+                    <div className="flex items-center gap-2">
+                      <code className="bg-background flex-1 rounded px-2 py-1 font-mono text-sm">
+                        {webhookUrl}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={copyWebhookUrl}
+                      >
+                        {copiedWebhookUrl ? (
+                          <CheckCircle2 className="mr-1 h-4 w-4" />
+                        ) : (
+                          <Copy className="mr-1 h-4 w-4" />
+                        )}
+                        {copiedWebhookUrl ? "Copié !" : "Copier"}
+                      </Button>
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      Utilisez cette URL dans votre tableau de bord Stripe pour
+                      configurer les webhooks. Cette URL est spécifique à votre
+                      organisation.
+                    </p>
+                  </div>
+                )}
 
                 {/* Information Alert */}
                 <Alert>

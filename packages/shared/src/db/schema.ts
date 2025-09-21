@@ -195,6 +195,11 @@ export const organizationAppointmentType = pgTable(
       .default(30),
     color: text("color").default("#3b82f6"), // Hex color for calendar display
     isActive: boolean("is_active").default(true).notNull(),
+    // Payment configuration
+    requiresPayment: boolean("requires_payment").default(false).notNull(),
+    stripeProductId: text("stripe_product_id"), // Stripe product ID
+    stripePriceId: text("stripe_price_id"), // Stripe price ID (for one-time payments)
+    paymentType: text("payment_type").default("one_time"), // "one_time" or "subscription"
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
@@ -212,7 +217,7 @@ export const appointment = pgTable("appointment", {
   description: text("description"),
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time").notNull(),
-  status: text("status").default("scheduled").notNull(), // scheduled, completed, cancelled, no_show
+  status: text("status").default("scheduled").notNull(), // scheduled, confirmed, completed, cancelled, no_show, payment_failed
   type: text("type").default("consultation").notNull(), // consultation, follow_up, emergency, etc.
   appointmentTypeId: uuid("appointment_type_id").references(
     () => organizationAppointmentType.id,
@@ -231,6 +236,13 @@ export const appointment = pgTable("appointment", {
   // Google Meet integration
   meetingLink: text("meeting_link"),
   meetingId: text("meeting_id"),
+  // Payment tracking
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  paymentStatus: text("payment_status").default("pending"), // pending, paid, failed, refunded, not_required
+  paymentAmount: integer("payment_amount"), // Amount in cents
+  paymentCurrency: text("payment_currency").default("eur"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
