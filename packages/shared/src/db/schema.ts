@@ -220,9 +220,9 @@ export const appointment = pgTable("appointment", {
   organizationId: text("organization_id")
     .notNull()
     .references(() => organization.id, { onDelete: "cascade" }),
-  createdById: text("created_by_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  createdById: text("created_by_id").references(() => user.id, {
+    onDelete: "cascade",
+  }), // Made nullable for public bookings
   notes: text("notes"),
   // Google Meet integration
   meetingLink: text("meeting_link"),

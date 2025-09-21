@@ -57,6 +57,13 @@ async function createMeetingLinkIfNeeded(
       !organizationData?.googleIntegrationEnabled ||
       !organizationData?.googleAccessToken
     ) {
+      console.log("❌ Google integration not properly configured");
+      return { meetingLink: null, meetingId: null };
+    }
+
+    // Additional validation for Google credentials
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      console.log("❌ Google OAuth credentials not configured in environment");
       return { meetingLink: null, meetingId: null };
     }
 
@@ -433,6 +440,9 @@ export const publicBookingRouter = createTRPCRouter({
         });
       }
 
+      // For public bookings, we don't require a creator user
+      // The appointment is created by the patient through the public interface
+
       // Create appointment title
       const appointmentTitle = `${appointmentType[0].name} - ${input.patientInfo.firstName} ${input.patientInfo.lastName}`;
 
@@ -465,7 +475,7 @@ export const publicBookingRouter = createTRPCRouter({
           appointmentTypeId: input.appointmentTypeId,
           patientId,
           organizationId: org[0].id,
-          createdById: patientId, // Use patient ID as creator for public bookings
+          createdById: null, // No creator for public bookings
           meetingLink: meetingData.meetingLink,
           meetingId: meetingData.meetingId,
         })

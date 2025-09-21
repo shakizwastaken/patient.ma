@@ -1,4 +1,4 @@
--- Migration: Add public booking fields to organization and organizationAppointmentConfig tables
+-- Migration: Add public booking fields and fix appointment structure
 
 -- Add public booking fields to organization table
 ALTER TABLE organization 
@@ -8,6 +8,10 @@ ADD COLUMN IF NOT EXISTS public_booking_enabled BOOLEAN DEFAULT FALSE;
 -- Add public booking field to organization_appointment_config table
 ALTER TABLE organization_appointment_config 
 ADD COLUMN IF NOT EXISTS public_booking_enabled BOOLEAN DEFAULT FALSE NOT NULL;
+
+-- Make createdById nullable in appointment table to support public bookings
+ALTER TABLE appointment 
+ALTER COLUMN created_by_id DROP NOT NULL;
 
 -- Create indexes for better performance on public booking queries
 CREATE INDEX IF NOT EXISTS idx_organization_slug_public_booking 
