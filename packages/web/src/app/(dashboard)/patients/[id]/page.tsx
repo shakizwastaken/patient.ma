@@ -19,7 +19,7 @@ interface PatientPageProps {
 }
 
 export default async function PatientPage({ params }: PatientPageProps) {
-  const patientId = params.id;
+  const { id: patientId } = await params;
 
   // Prefetch patient data and their appointments
   await Promise.all([

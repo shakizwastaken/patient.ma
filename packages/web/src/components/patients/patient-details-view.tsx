@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { CreateAppointmentDialog } from "@/components/calendar/create-appointment-dialog";
 import { AppointmentDetailsDialog } from "@/components/calendar/appointment-details-dialog";
 import { UpdatePatientDialog } from "./update-patient-dialog";
+import { PatientNotes } from "./patient-notes";
 import type { Patient } from "@/types/patient";
 
 type Appointment = {
@@ -298,6 +299,11 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Patient Notes */}
+          <div className="mt-6">
+            <PatientNotes patientId={patientId} />
+          </div>
         </div>
 
         {/* Upcoming Appointments */}

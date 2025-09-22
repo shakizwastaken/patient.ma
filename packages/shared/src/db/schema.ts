@@ -184,6 +184,27 @@ export const patientOrganization = pgTable("patient_organization", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const patientNote = pgTable("patient_note", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => patient.id, { onDelete: "cascade" }),
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organization.id, { onDelete: "cascade" }),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  isPrivate: boolean("is_private").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
 export const organizationAppointmentType = pgTable(
   "organization_appointment_type",
   {
