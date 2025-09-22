@@ -19,7 +19,7 @@
     "web:db:generate": "pnpm --filter @acme/web db:generate",
     "web:db:migrate": "pnpm --filter @acme/web db:migrate",
     "push": "pnpm --filter @acme/web push",
-    "web:db:studio": "pnpm --filter @acme/web studio",
+    "studio": "pnpm --filter @acme/web studio",
     "admin:dev": "pnpm --filter @acme/admin dev",
     "admin:build": "pnpm --filter @acme/admin build",
     "admin:start": "pnpm --filter @acme/admin start",

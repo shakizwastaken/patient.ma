@@ -188,6 +188,92 @@ async function createMeetingLinkIfNeeded(
   }
 }
 
+// Helper function to create calendar event for in-person appointments
+async function createInPersonCalendarEvent(
+  ctx: any,
+  organizationData: any,
+  appointmentData: {
+    title: string;
+    description?: string;
+    startTime: Date;
+    endTime: Date;
+    appointmentTypeId?: string;
+  },
+  patientEmail?: string,
+) {
+  try {
+    console.log("🔍 Creating in-person calendar event for appointment:", {
+      appointmentTypeId: appointmentData.appointmentTypeId,
+      title: appointmentData.title,
+    });
+
+    if (
+      !organizationData?.googleIntegrationEnabled ||
+      !organizationData?.googleAccessToken
+    ) {
+      console.log("❌ Google integration not properly configured");
+      return { meetingLink: null, meetingId: null };
+    }
+
+    // Additional validation for Google credentials
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      console.log("❌ Google OAuth credentials not configured in environment");
+      return { meetingLink: null, meetingId: null };
+    }
+
+    // Create Google Calendar service with token refresh callback
+    const calendarService = new GoogleCalendarService(
+      organizationData.googleAccessToken,
+      organizationData.googleRefreshToken,
+      async (newAccessToken: string, expiryDate?: Date) => {
+        // Update the database with the new access token
+        await ctx.db
+          .update(organization)
+          .set({
+            googleAccessToken: newAccessToken,
+            googleTokenExpiresAt: expiryDate,
+          })
+          .where(eq(organization.id, organizationData.id));
+
+        console.log("💾 Updated database with new Google access token");
+      },
+    );
+
+    // Prepare attendee emails (patient only - organizer will be added automatically)
+    const attendeeEmails = [];
+    if (patientEmail) {
+      attendeeEmails.push(patientEmail);
+      console.log("👤 Adding patient as attendee:", patientEmail);
+    }
+
+    // Use organization address as location if available
+    const location = undefined; // Organization address not available in schema
+
+    // Create in-person calendar event
+    const eventResult = await calendarService.createInPersonEvent({
+      summary: appointmentData.title,
+      description: appointmentData.description,
+      startTime: appointmentData.startTime.toISOString(),
+      endTime: appointmentData.endTime.toISOString(),
+      attendeeEmails,
+      location,
+    });
+
+    console.log("🎉 In-person calendar event created successfully:", {
+      eventId: eventResult.eventId,
+      calendarEventLink: eventResult.calendarEventLink,
+    });
+
+    return {
+      meetingLink: null, // No meeting link for in-person events
+      meetingId: eventResult.eventId,
+    };
+  } catch (error) {
+    console.error("Error creating in-person calendar event:", error);
+    return { meetingLink: null, meetingId: null };
+  }
+}
+
 // Helper function to generate available time slots
 function generateTimeSlots(
   availability: any[],
@@ -855,43 +941,82 @@ export const publicBookingRouter = createTRPCRouter({
         };
       }
 
-      // For free appointments, create meeting link and confirm immediately
+      // For free appointments, create calendar event (online or in-person) and confirm immediately
       let meetingData: {
         meetingLink: string | null;
         meetingId: string | null;
       } = { meetingLink: null, meetingId: null };
 
       try {
-        console.log("🎥 Creating Google Meet link for free appointment...");
-        meetingData = await createMeetingLinkIfNeeded(
-          ctx,
-          org[0],
-          {
-            title: appointmentTitle,
-            description: input.notes,
-            startTime: input.startTime,
-            endTime: input.endTime,
-            appointmentTypeId: input.appointmentTypeId,
-          },
-          input.patientInfo.email,
-        );
+        // Check if this is an online appointment type
+        const config = await ctx.db
+          .select()
+          .from(organizationAppointmentConfig)
+          .where(eq(organizationAppointmentConfig.organizationId, org[0].id))
+          .limit(1);
 
-        if (meetingData.meetingLink) {
-          console.log(
-            "✅ Google Meet link created successfully for free appointment",
-          );
-          console.log(
-            "📧 Google Calendar invitation sent to:",
+        const appointmentConfig = config[0];
+        const isOnlineAppointment =
+          appointmentConfig?.onlineConferencingEnabled &&
+          input.appointmentTypeId ===
+            appointmentConfig.onlineConferencingAppointmentTypeId;
+
+        if (isOnlineAppointment) {
+          console.log("🎥 Creating Google Meet link for online appointment...");
+          meetingData = await createMeetingLinkIfNeeded(
+            ctx,
+            org[0],
+            {
+              title: appointmentTitle,
+              description: input.notes,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              appointmentTypeId: input.appointmentTypeId,
+            },
             input.patientInfo.email,
           );
+
+          if (meetingData.meetingLink) {
+            console.log(
+              "✅ Google Meet link created successfully for online appointment",
+            );
+            console.log(
+              "📧 Google Calendar invitation sent to:",
+              input.patientInfo.email,
+            );
+          } else {
+            console.log(
+              "ℹ️ No Google Meet link created (Google not configured)",
+            );
+          }
         } else {
-          console.log(
-            "ℹ️ No Google Meet link created (not an online appointment or Google not configured)",
+          console.log("📍 Creating in-person calendar event...");
+          meetingData = await createInPersonCalendarEvent(
+            ctx,
+            org[0],
+            {
+              title: appointmentTitle,
+              description: input.notes,
+              startTime: input.startTime,
+              endTime: input.endTime,
+              appointmentTypeId: input.appointmentTypeId,
+            },
+            input.patientInfo.email,
           );
+
+          if (meetingData.meetingId) {
+            console.log("✅ In-person calendar event created successfully");
+            console.log(
+              "📧 Google Calendar invitation sent to:",
+              input.patientInfo.email,
+            );
+          } else {
+            console.log("ℹ️ No calendar event created (Google not configured)");
+          }
         }
-      } catch (meetingError) {
-        console.error("❌ Failed to create Google Meet link:", meetingError);
-        console.log("📧 Will still create appointment without meeting link");
+      } catch (calendarError) {
+        console.error("❌ Failed to create calendar event:", calendarError);
+        console.log("📧 Will still create appointment without calendar event");
         meetingData = { meetingLink: null, meetingId: null };
       }
       const newAppointment = await ctx.db

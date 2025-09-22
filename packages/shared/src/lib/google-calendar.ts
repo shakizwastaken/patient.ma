@@ -9,6 +9,16 @@ export interface CreateMeetingEventData {
   organizerEmail?: string;
 }
 
+export interface CreateInPersonEventData {
+  summary: string;
+  description?: string;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  attendeeEmails: string[];
+  location?: string;
+  organizerEmail?: string;
+}
+
 export interface TokenRefreshCallback {
   (newAccessToken: string, expiryDate?: Date): Promise<void>;
 }
@@ -77,9 +87,7 @@ export class GoogleCalendarService {
         console.log("✅ Access token appears valid (not expired)");
       }
     } catch (error: any) {
-      if (error.message === "GOOGLE_TOKEN_EXPIRED") 
-        throw error;
-      
+      if (error.message === "GOOGLE_TOKEN_EXPIRED") throw error;
 
       console.error("❌ Error checking token validity:", error);
       throw new Error("GOOGLE_TOKEN_EXPIRED");
@@ -171,6 +179,93 @@ export class GoogleCalendarService {
       }
 
       throw new Error(`Failed to create calendar event: ${error.message}`);
+    }
+  }
+
+  async createInPersonEvent(
+    eventData: CreateInPersonEventData,
+  ): Promise<MeetingEventResult> {
+    try {
+      console.log("📅 Creating in-person calendar event");
+      console.log("👥 Attendees:", eventData.attendeeEmails);
+      console.log("📍 Location:", eventData.location || "Non spécifié");
+
+      // Create a rich description for the in-person calendar event
+      const eventDescription = [
+        eventData.description,
+        "",
+        "📅 Rendez-vous médical en présentiel",
+        eventData.location
+          ? `📍 Lieu: ${eventData.location}`
+          : "📍 Lieu: À confirmer",
+        "",
+        "Veuillez vous présenter au cabinet à l'heure prévue.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const event = {
+        summary: eventData.summary,
+        description: eventDescription,
+        location: eventData.location || undefined,
+        start: {
+          dateTime: eventData.startTime,
+          timeZone: "Africa/Casablanca", // Default timezone
+        },
+        end: {
+          dateTime: eventData.endTime,
+          timeZone: "Africa/Casablanca",
+        },
+        attendees: eventData.attendeeEmails.map((email) => ({
+          email,
+          responseStatus: "needsAction",
+        })),
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: "email", minutes: 24 * 60 }, // 24 hours before
+            { method: "popup", minutes: 30 }, // 30 minutes before
+          ],
+        },
+        // Ensure calendar invites are sent
+        guestsCanInviteOthers: false,
+        guestsCanModify: false,
+        guestsCanSeeOtherGuests: true,
+      };
+
+      console.log("📤 Inserting in-person calendar event with invites...");
+      console.log("🔑 Using auth credentials:", {
+        hasAccessToken: !!this.auth.credentials.access_token,
+        hasRefreshToken: !!this.auth.credentials.refresh_token,
+        tokenExpiry: this.auth.credentials.expiry_date,
+      });
+
+      const response = await this.calendar.events.insert({
+        calendarId: "primary",
+        resource: event,
+        sendUpdates: "all", // Send email invitations to all attendees
+      });
+
+      console.log(
+        "📬 In-person calendar event created successfully - invites sent to all attendees",
+      );
+
+      return {
+        meetingLink: null, // No meeting link for in-person events
+        eventId: response.data.id,
+        calendarEventLink: response.data.htmlLink || "",
+      };
+    } catch (error: any) {
+      console.error("Error creating in-person Google Calendar event:", error);
+
+      // Handle token refresh if access token expired
+      if (error.code === 401 || error.message?.includes("invalid_grant")) {
+        throw new Error("GOOGLE_TOKEN_EXPIRED");
+      }
+
+      throw new Error(
+        `Failed to create in-person calendar event: ${error.message}`,
+      );
     }
   }
 

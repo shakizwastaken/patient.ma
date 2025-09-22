@@ -224,19 +224,21 @@ async function createMeetingLinkForPaidAppointment(
       .where(eq(organizationAppointmentConfig.organizationId, organizationId))
       .limit(1);
 
-    if (
-      !config?.onlineConferencingEnabled ||
-      appointmentDetails.appointmentTypeId !==
-        config.onlineConferencingAppointmentTypeId
-    ) {
-      console.log(
-        "Online conferencing not enabled or not required for this appointment type",
-      );
+    if (!org.googleIntegrationEnabled || !org.googleAccessToken) {
+      console.log("Google integration not enabled for organization");
       return;
     }
 
-    if (!org.googleIntegrationEnabled || !org.googleAccessToken) {
-      console.log("Google integration not enabled for organization");
+    // Check if this is an online appointment type
+    const isOnlineAppointment =
+      config?.onlineConferencingEnabled &&
+      appointmentDetails.appointmentTypeId ===
+        config.onlineConferencingAppointmentTypeId;
+
+    if (!isOnlineAppointment && !config?.onlineConferencingEnabled) {
+      console.log(
+        "No calendar event configuration found for this appointment type",
+      );
       return;
     }
 
@@ -255,14 +257,39 @@ async function createMeetingLinkForPaidAppointment(
       },
     );
 
-    // Create the meeting event
-    const meetingResult = await calendarService.createMeetingEvent({
-      summary: appointmentDetails.title,
-      description: appointmentDetails.description || undefined,
-      startTime: appointmentDetails.startTime.toISOString(),
-      endTime: appointmentDetails.endTime.toISOString(),
-      attendeeEmails: [patientDetails.email!],
-    });
+    // Create the appropriate calendar event (online or in-person)
+    let meetingResult;
+
+    if (isOnlineAppointment) {
+      console.log("🎥 Creating online meeting event for paid appointment...");
+      meetingResult = await calendarService.createMeetingEvent({
+        summary: appointmentDetails.title,
+        description: appointmentDetails.description || undefined,
+        startTime: appointmentDetails.startTime.toISOString(),
+        endTime: appointmentDetails.endTime.toISOString(),
+        attendeeEmails: [patientDetails.email!],
+      });
+
+      console.log(
+        `✅ Online meeting link created for paid appointment ${appointmentId}: ${meetingResult.meetingLink}`,
+      );
+    } else {
+      console.log(
+        "📍 Creating in-person calendar event for paid appointment...",
+      );
+      meetingResult = await calendarService.createInPersonEvent({
+        summary: appointmentDetails.title,
+        description: appointmentDetails.description || undefined,
+        startTime: appointmentDetails.startTime.toISOString(),
+        endTime: appointmentDetails.endTime.toISOString(),
+        attendeeEmails: [patientDetails.email!],
+        location: undefined, // Organization address not available in schema
+      });
+
+      console.log(
+        `✅ In-person calendar event created for paid appointment ${appointmentId}`,
+      );
+    }
 
     // Update appointment with meeting details
     await db
@@ -274,9 +301,6 @@ async function createMeetingLinkForPaidAppointment(
       })
       .where(eq(appointment.id, appointmentId));
 
-    console.log(
-      `✅ Meeting link created for paid appointment ${appointmentId}: ${meetingResult.meetingLink}`,
-    );
     console.log(
       `📧 Google Calendar invitation sent to: ${patientDetails.email}`,
     );
