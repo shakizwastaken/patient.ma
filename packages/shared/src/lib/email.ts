@@ -64,6 +64,25 @@ export interface SendPaymentRetryEmailParams {
   retryPaymentUrl: string;
 }
 
+export interface SendNewAppointmentNotificationParams {
+  to: string;
+  ownerName: string;
+  organizationName: string;
+  organizationLogo?: string;
+  patientName: string;
+  patientEmail: string;
+  patientPhoneNumber?: string;
+  appointmentTitle: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  appointmentType: string;
+  duration: number;
+  meetingLink?: string;
+  notes?: string;
+  isPaidAppointment: boolean;
+  paymentStatus?: string;
+}
+
 const APP_NAME = "ACME";
 const FROM_EMAIL = "updates@email.allignia.io";
 
@@ -481,6 +500,105 @@ export const emailService = {
 
       if (error) {
         console.error("Failed to send payment retry email:", error);
+        return { error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error("Email service error:", error);
+      return { error: (error as Error).message };
+    }
+  },
+
+  async sendNewAppointmentNotification({
+    to,
+    ownerName,
+    organizationName,
+    organizationLogo,
+    patientName,
+    patientEmail,
+    patientPhoneNumber,
+    appointmentTitle,
+    appointmentDate,
+    appointmentTime,
+    appointmentType,
+    duration,
+    meetingLink,
+    notes,
+    isPaidAppointment,
+    paymentStatus,
+  }: SendNewAppointmentNotificationParams) {
+    try {
+      const { data, error } = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [to],
+        subject: `Nouveau rendez-vous - ${organizationName}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              ${organizationLogo ? `<img src="${organizationLogo}" alt="${organizationName}" style="height: 60px; margin-bottom: 20px;">` : ""}
+              <h1 style="color: #059669; margin: 0; font-size: 28px;">Nouveau rendez-vous</h1>
+              <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">Un patient a réservé un rendez-vous</p>
+            </div>
+            
+            <div style="background-color: #f0fdf4; border: 2px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h2 style="color: #166534; margin: 0 0 15px 0; font-size: 18px;">Bonjour ${ownerName},</h2>
+              <p style="color: #166534; margin: 0 0 15px 0; line-height: 1.5;">
+                Un nouveau rendez-vous a été réservé pour votre organisation :
+              </p>
+              
+              <div style="background-color: #ffffff; border-radius: 6px; padding: 15px; margin: 15px 0;">
+                <h3 style="margin: 0 0 10px 0; color: #374151; font-size: 16px;">Détails du rendez-vous</h3>
+                <p style="margin: 5px 0; color: #374151;"><strong>Patient :</strong> ${patientName}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Email :</strong> ${patientEmail}</p>
+                ${patientPhoneNumber ? `<p style="margin: 5px 0; color: #374151;"><strong>Téléphone :</strong> ${patientPhoneNumber}</p>` : ""}
+                <p style="margin: 5px 0; color: #374151;"><strong>Type :</strong> ${appointmentType}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Date :</strong> ${appointmentDate}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Heure :</strong> ${appointmentTime}</p>
+                <p style="margin: 5px 0; color: #374151;"><strong>Durée :</strong> ${duration} minutes</p>
+                ${isPaidAppointment ? `<p style="margin: 5px 0; color: #374151;"><strong>Paiement :</strong> ${paymentStatus === "pending" ? "En attente de paiement" : paymentStatus === "paid" ? "Payé" : "Non payé"}</p>` : ""}
+                ${meetingLink ? `<p style="margin: 5px 0; color: #374151;"><strong>Lien de réunion :</strong> <a href="${meetingLink}" style="color: #059669;">Rejoindre la réunion</a></p>` : ""}
+                ${notes ? `<p style="margin: 5px 0; color: #374151;"><strong>Notes :</strong> ${notes}</p>` : ""}
+              </div>
+              
+              <div style="background-color: #fef3c7; border-radius: 6px; padding: 15px; margin: 15px 0;">
+                <p style="margin: 0; color: #92400e; font-size: 14px;">
+                  <strong>💡 Information :</strong> 
+                  ${
+                    isPaidAppointment && paymentStatus === "pending"
+                      ? "Ce rendez-vous nécessite un paiement. Le patient sera redirigé vers Stripe pour finaliser le paiement."
+                      : isPaidAppointment && paymentStatus === "paid"
+                        ? "Ce rendez-vous payant a été confirmé et payé avec succès."
+                        : "Ce rendez-vous gratuit a été confirmé automatiquement."
+                  }
+                </p>
+              </div>
+            </div>
+            
+            <div style="background-color: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #374151; margin: 0 0 15px 0; font-size: 16px;">Actions recommandées</h3>
+              <ul style="color: #6b7280; margin: 0; padding-left: 20px; line-height: 1.6;">
+                <li>Vérifiez votre calendrier pour confirmer la disponibilité</li>
+                <li>Préparez les documents nécessaires pour le rendez-vous</li>
+                ${meetingLink ? "<li>Testez le lien de réunion avant l'heure prévue</li>" : ""}
+                <li>Contactez le patient si des informations supplémentaires sont nécessaires</li>
+              </ul>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <p style="color: #9ca3af; font-size: 14px; margin: 0;">
+                Vous recevez cet e-mail car vous êtes administrateur de ${organizationName}.
+              </p>
+              <p style="margin: 16px 0 0 0; text-align: center; color: #9ca3af; font-size: 12px;">
+                Ceci est un e-mail automatique. Merci de ne pas y répondre.
+              </p>
+            </div>
+          </div>
+        `,
+      });
+
+      if (error) {
+        console.error("Failed to send new appointment notification:", error);
         return { error: error.message };
       }
 

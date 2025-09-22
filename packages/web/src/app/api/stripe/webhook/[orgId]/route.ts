@@ -7,9 +7,120 @@ import {
   appointment,
   organizationAppointmentConfig,
   patient,
+  member,
+  user,
+  organizationAppointmentType,
 } from "@acme/shared/server";
-import { eq } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { GoogleCalendarService, emailService } from "@acme/shared/server";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+
+// Helper function to get organization owners and admins
+async function getOrganizationOwners(organizationId: string) {
+  try {
+    const owners = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: member.role,
+      })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(
+        and(
+          eq(member.organizationId, organizationId),
+          or(eq(member.role, "owner"), eq(member.role, "admin")),
+        ),
+      );
+
+    return owners;
+  } catch (error) {
+    console.error("Error fetching organization owners:", error);
+    return [];
+  }
+}
+
+// Helper function to send appointment notifications to organization owners
+async function sendAppointmentNotificationToOwners(
+  organizationId: string,
+  organizationName: string,
+  organizationLogo: string | null,
+  appointmentData: {
+    patientName: string;
+    patientEmail: string;
+    patientPhoneNumber?: string;
+    appointmentTitle: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    appointmentType: string;
+    duration: number;
+    meetingLink?: string;
+    notes?: string;
+    isPaidAppointment: boolean;
+    paymentStatus?: string;
+  },
+) {
+  try {
+    const owners = await getOrganizationOwners(organizationId);
+
+    if (owners.length === 0) {
+      console.log("No organization owners found to notify");
+      return;
+    }
+
+    // Send notification to each owner/admin
+    const notificationPromises = owners.map(
+      async (owner: {
+        id: string;
+        name: string | null;
+        email: string;
+        role: string;
+      }) => {
+        try {
+          const emailResult = await emailService.sendNewAppointmentNotification(
+            {
+              to: owner.email,
+              ownerName: owner.name || "Administrateur",
+              organizationName,
+              organizationLogo: organizationLogo || undefined,
+              patientName: appointmentData.patientName,
+              patientEmail: appointmentData.patientEmail,
+              patientPhoneNumber: appointmentData.patientPhoneNumber,
+              appointmentTitle: appointmentData.appointmentTitle,
+              appointmentDate: appointmentData.appointmentDate,
+              appointmentTime: appointmentData.appointmentTime,
+              appointmentType: appointmentData.appointmentType,
+              duration: appointmentData.duration,
+              meetingLink: appointmentData.meetingLink,
+              notes: appointmentData.notes,
+              isPaidAppointment: appointmentData.isPaidAppointment,
+              paymentStatus: appointmentData.paymentStatus,
+            },
+          );
+
+          if (emailResult.error) {
+            console.error(
+              `Failed to send notification to ${owner.email}:`,
+              emailResult.error,
+            );
+          } else {
+            console.log(
+              `✅ Appointment notification sent to ${owner.email} (${owner.role})`,
+            );
+          }
+        } catch (error) {
+          console.error(`Error sending notification to ${owner.email}:`, error);
+        }
+      },
+    );
+
+    await Promise.all(notificationPromises);
+  } catch (error) {
+    console.error("Error sending appointment notifications to owners:", error);
+  }
+}
 
 export async function POST(
   req: NextRequest,
@@ -422,8 +533,97 @@ async function handleCheckoutSessionCompleted(
     // Create meeting link NOW that payment is confirmed
     await createMeetingLinkForPaidAppointment(appointmentId, organizationId);
 
+    // Send notification to organization owners about confirmed paid appointment
+    try {
+      // Get appointment details for notification
+      const [appointmentDetails] = await db
+        .select({
+          title: appointment.title,
+          startTime: appointment.startTime,
+          endTime: appointment.endTime,
+          meetingLink: appointment.meetingLink,
+          notes: appointment.notes,
+          appointmentTypeId: appointment.appointmentTypeId,
+          patientId: appointment.patientId,
+        })
+        .from(appointment)
+        .where(eq(appointment.id, appointmentId))
+        .limit(1);
+
+      if (appointmentDetails) {
+        // Get patient details
+        const [patientDetails] = await db
+          .select({
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+            email: patient.email,
+            phoneNumber: patient.phoneNumber,
+          })
+          .from(patient)
+          .where(eq(patient.id, appointmentDetails.patientId))
+          .limit(1);
+
+        // Get appointment type details
+        const [appointmentType] = await db
+          .select({
+            name: organizationAppointmentType.name,
+            defaultDurationMinutes:
+              organizationAppointmentType.defaultDurationMinutes,
+          })
+          .from(organizationAppointmentType)
+          .where(
+            eq(
+              organizationAppointmentType.id,
+              appointmentDetails.appointmentTypeId!,
+            ),
+          )
+          .limit(1);
+
+        // Get organization details
+        const [org] = await db
+          .select({
+            name: organization.name,
+            logo: organization.logo,
+          })
+          .from(organization)
+          .where(eq(organization.id, organizationId))
+          .limit(1);
+
+        if (patientDetails && appointmentType && org) {
+          await sendAppointmentNotificationToOwners(
+            organizationId,
+            org.name,
+            org.logo,
+            {
+              patientName: `${patientDetails.firstName} ${patientDetails.lastName}`,
+              patientEmail: patientDetails.email!,
+              patientPhoneNumber: patientDetails.phoneNumber || undefined,
+              appointmentTitle: appointmentDetails.title,
+              appointmentDate: format(
+                appointmentDetails.startTime,
+                "EEEE, MMMM d, yyyy",
+                { locale: fr },
+              ),
+              appointmentTime: `${format(appointmentDetails.startTime, "HH:mm")} - ${format(appointmentDetails.endTime, "HH:mm")}`,
+              appointmentType: appointmentType.name,
+              duration: appointmentType.defaultDurationMinutes,
+              meetingLink: appointmentDetails.meetingLink || undefined,
+              notes: appointmentDetails.notes || undefined,
+              isPaidAppointment: true,
+              paymentStatus: "paid",
+            },
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error(
+        "Failed to send notification to organization owners:",
+        notificationError,
+      );
+      // Don't fail the webhook if notification fails
+    }
+
     // TODO: Send confirmation email to patient
-    // TODO: Send notification to organization
   } catch (error) {
     console.error("Error handling checkout session completed:", error);
   }

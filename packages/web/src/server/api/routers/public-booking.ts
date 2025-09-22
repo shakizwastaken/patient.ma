@@ -10,6 +10,8 @@ import {
   organizationAppointmentType,
   organization,
   organizationAppointmentConfig,
+  member,
+  user,
 } from "@acme/shared/server";
 
 import { createTRPCRouter, publicProcedure } from "@/server/api/trpc";
@@ -17,6 +19,113 @@ import { GoogleCalendarService, emailService } from "@acme/shared/server";
 import { addMinutes, addDays, format, startOfDay, endOfDay } from "date-fns";
 import { fr } from "date-fns/locale";
 import Stripe from "stripe";
+
+// Helper function to get organization owners and admins
+async function getOrganizationOwners(db: any, organizationId: string) {
+  try {
+    const owners = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: member.role,
+      })
+      .from(member)
+      .innerJoin(user, eq(member.userId, user.id))
+      .where(
+        and(
+          eq(member.organizationId, organizationId),
+          or(eq(member.role, "owner"), eq(member.role, "admin")),
+        ),
+      );
+
+    return owners;
+  } catch (error) {
+    console.error("Error fetching organization owners:", error);
+    return [];
+  }
+}
+
+// Helper function to send appointment notifications to organization owners
+async function sendAppointmentNotificationToOwners(
+  db: any,
+  organizationId: string,
+  organizationName: string,
+  organizationLogo: string | null,
+  appointmentData: {
+    patientName: string;
+    patientEmail: string;
+    patientPhoneNumber?: string;
+    appointmentTitle: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    appointmentType: string;
+    duration: number;
+    meetingLink?: string;
+    notes?: string;
+    isPaidAppointment: boolean;
+    paymentStatus?: string;
+  },
+) {
+  try {
+    const owners = await getOrganizationOwners(db, organizationId);
+
+    if (owners.length === 0) {
+      console.log("No organization owners found to notify");
+      return;
+    }
+
+    // Send notification to each owner/admin
+    const notificationPromises = owners.map(
+      async (owner: {
+        id: string;
+        name: string | null;
+        email: string;
+        role: string;
+      }) => {
+        try {
+          const emailResult = await emailService.sendNewAppointmentNotification(
+            {
+              to: owner.email,
+              ownerName: owner.name || "Administrateur",
+              organizationName,
+              organizationLogo: organizationLogo || undefined,
+              patientName: appointmentData.patientName,
+              patientEmail: appointmentData.patientEmail,
+              patientPhoneNumber: appointmentData.patientPhoneNumber,
+              appointmentTitle: appointmentData.appointmentTitle,
+              appointmentDate: appointmentData.appointmentDate,
+              appointmentTime: appointmentData.appointmentTime,
+              appointmentType: appointmentData.appointmentType,
+              duration: appointmentData.duration,
+              meetingLink: appointmentData.meetingLink,
+              notes: appointmentData.notes,
+              isPaidAppointment: appointmentData.isPaidAppointment,
+              paymentStatus: appointmentData.paymentStatus,
+            },
+          );
+
+          if (emailResult.error) {
+            console.error(
+              `Failed to send notification to ${owner.email}:`,
+              emailResult.error,
+            );
+          } else {
+            console.log(
+              `✅ Appointment notification sent to ${owner.email} (${owner.role})`,
+            );
+          }
+        } catch (error) {
+          console.error(`Error sending notification to ${owner.email}:`, error);
+        }
+      },
+    );
+
+    await Promise.all(notificationPromises);
+  } catch (error) {
+    console.error("Error sending appointment notifications to owners:", error);
+  }
+}
 
 // Helper function to create Stripe checkout session for paid appointments
 async function createStripeCheckoutSession(params: {
@@ -940,6 +1049,38 @@ export const publicBookingRouter = createTRPCRouter({
           })
           .where(eq(appointment.id, newAppointment[0]!.id));
 
+        // Send notification to organization owners for paid appointment
+        try {
+          await sendAppointmentNotificationToOwners(
+            ctx.db,
+            org[0].id,
+            org[0].name,
+            org[0].logo,
+            {
+              patientName: `${input.patientInfo.firstName} ${input.patientInfo.lastName}`,
+              patientEmail: input.patientInfo.email,
+              patientPhoneNumber: input.patientInfo.phoneNumber,
+              appointmentTitle,
+              appointmentDate: format(input.startTime, "EEEE, MMMM d, yyyy", {
+                locale: fr,
+              }),
+              appointmentTime: `${format(input.startTime, "HH:mm")} - ${format(input.endTime, "HH:mm")}`,
+              appointmentType: appointmentType[0].name,
+              duration: appointmentType[0].defaultDurationMinutes,
+              meetingLink: undefined, // No meeting link until payment is confirmed
+              notes: input.notes,
+              isPaidAppointment: true,
+              paymentStatus: "pending",
+            },
+          );
+        } catch (notificationError) {
+          console.error(
+            "Failed to send notification to organization owners:",
+            notificationError,
+          );
+          // Don't fail the appointment creation if notification fails
+        }
+
         return {
           success: true,
           appointmentId: newAppointment[0]!.id,
@@ -1100,6 +1241,38 @@ export const publicBookingRouter = createTRPCRouter({
         console.warn(
           "⚠️ Appointment was created but email failed to send. Patient may not receive confirmation.",
         );
+      }
+
+      // Send notification to organization owners for free appointment
+      try {
+        await sendAppointmentNotificationToOwners(
+          ctx.db,
+          org[0].id,
+          org[0].name,
+          org[0].logo,
+          {
+            patientName: `${input.patientInfo.firstName} ${input.patientInfo.lastName}`,
+            patientEmail: input.patientInfo.email,
+            patientPhoneNumber: input.patientInfo.phoneNumber,
+            appointmentTitle,
+            appointmentDate: format(input.startTime, "EEEE, MMMM d, yyyy", {
+              locale: fr,
+            }),
+            appointmentTime: `${format(input.startTime, "HH:mm")} - ${format(input.endTime, "HH:mm")}`,
+            appointmentType: appointmentType[0].name,
+            duration: appointmentType[0].defaultDurationMinutes,
+            meetingLink: meetingData.meetingLink || undefined,
+            notes: input.notes,
+            isPaidAppointment: false,
+            paymentStatus: "not_required",
+          },
+        );
+      } catch (notificationError) {
+        console.error(
+          "Failed to send notification to organization owners:",
+          notificationError,
+        );
+        // Don't fail the appointment creation if notification fails
       }
 
       return {
