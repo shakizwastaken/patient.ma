@@ -81,6 +81,8 @@ export interface SendNewAppointmentNotificationParams {
   notes?: string;
   isPaidAppointment: boolean;
   paymentStatus?: string;
+  paymentAmount?: number;
+  paymentCurrency?: string;
 }
 
 const APP_NAME = "ACME";
@@ -527,24 +529,38 @@ export const emailService = {
     notes,
     isPaidAppointment,
     paymentStatus,
+    paymentAmount,
+    paymentCurrency,
   }: SendNewAppointmentNotificationParams) {
     try {
+      console.log("🔍 Debug - Email template values:", {
+        isPaidAppointment,
+        paymentStatus,
+        paymentAmount,
+        paymentCurrency,
+        meetingLink,
+      });
+
       const { data, error } = await resend.emails.send({
         from: FROM_EMAIL,
         to: [to],
-        subject: `Nouveau rendez-vous - ${organizationName}`,
+        subject: `${isPaidAppointment ? "Nouveau rendez-vous payé" : "Nouveau rendez-vous"} - ${organizationName}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
             <div style="text-align: center; margin-bottom: 30px;">
               ${organizationLogo ? `<img src="${organizationLogo}" alt="${organizationName}" style="height: 60px; margin-bottom: 20px;">` : ""}
-              <h1 style="color: #059669; margin: 0; font-size: 28px;">Nouveau rendez-vous</h1>
-              <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">Un patient a réservé un rendez-vous</p>
+              <h1 style="color: #059669; margin: 0; font-size: 28px;">${isPaidAppointment ? "Nouveau rendez-vous payé" : "Nouveau rendez-vous"}</h1>
+              <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 16px;">${isPaidAppointment ? "Un patient a réservé et payé un rendez-vous" : "Un patient a réservé un rendez-vous"}</p>
             </div>
             
             <div style="background-color: #f0fdf4; border: 2px solid #bbf7d0; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h2 style="color: #166534; margin: 0 0 15px 0; font-size: 18px;">Bonjour ${ownerName},</h2>
               <p style="color: #166534; margin: 0 0 15px 0; line-height: 1.5;">
-                Un nouveau rendez-vous a été réservé pour votre organisation :
+                ${
+                  isPaidAppointment
+                    ? "Un nouveau rendez-vous payé a été réservé pour votre organisation :"
+                    : "Un nouveau rendez-vous gratuit a été réservé pour votre organisation :"
+                }
               </p>
               
               <div style="background-color: #ffffff; border-radius: 6px; padding: 15px; margin: 15px 0;">
@@ -556,8 +572,15 @@ export const emailService = {
                 <p style="margin: 5px 0; color: #374151;"><strong>Date :</strong> ${appointmentDate}</p>
                 <p style="margin: 5px 0; color: #374151;"><strong>Heure :</strong> ${appointmentTime}</p>
                 <p style="margin: 5px 0; color: #374151;"><strong>Durée :</strong> ${duration} minutes</p>
-                ${isPaidAppointment ? `<p style="margin: 5px 0; color: #374151;"><strong>Paiement :</strong> ${paymentStatus === "pending" ? "En attente de paiement" : paymentStatus === "paid" ? "Payé" : "Non payé"}</p>` : ""}
-                ${meetingLink ? `<p style="margin: 5px 0; color: #374151;"><strong>Lien de réunion :</strong> <a href="${meetingLink}" style="color: #059669;">Rejoindre la réunion</a></p>` : ""}
+                ${
+                  isPaidAppointment
+                    ? `
+                  <p style="margin: 5px 0; color: #374151;"><strong>Paiement :</strong> ${paymentStatus === "pending" ? "En attente de paiement" : paymentStatus === "paid" ? "Payé" : "Non payé"}</p>
+                  ${paymentAmount && paymentCurrency ? `<p style="margin: 5px 0; color: #059669; font-weight: bold;"><strong>Montant payé :</strong> ${(Number(paymentAmount) / 100).toFixed(2)} ${paymentCurrency.toUpperCase()}</p>` : ""}
+                `
+                    : ""
+                }
+                ${meetingLink ? `<p style="margin: 5px 0; color: #374151;"><strong>Lien de réunion :</strong> <a href="${meetingLink}" style="color: #059669; text-decoration: none;">Rejoindre la réunion</a></p>` : ""}
                 ${notes ? `<p style="margin: 5px 0; color: #374151;"><strong>Notes :</strong> ${notes}</p>` : ""}
               </div>
               
@@ -568,7 +591,7 @@ export const emailService = {
                     isPaidAppointment && paymentStatus === "pending"
                       ? "Ce rendez-vous nécessite un paiement. Le patient sera redirigé vers Stripe pour finaliser le paiement."
                       : isPaidAppointment && paymentStatus === "paid"
-                        ? "Ce rendez-vous payant a été confirmé et payé avec succès."
+                        ? `Ce rendez-vous payant a été confirmé et payé avec succès${paymentAmount ? ` pour un montant de ${(Number(paymentAmount) / 100).toFixed(2)} ${paymentCurrency?.toUpperCase()}` : ""}.`
                         : "Ce rendez-vous gratuit a été confirmé automatiquement."
                   }
                 </p>

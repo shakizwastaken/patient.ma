@@ -60,6 +60,8 @@ async function sendAppointmentNotificationToOwners(
     notes?: string;
     isPaidAppointment: boolean;
     paymentStatus?: string;
+    paymentAmount?: number;
+    paymentCurrency?: string;
   },
 ) {
   try {
@@ -590,6 +592,22 @@ async function handleCheckoutSessionCompleted(
           .limit(1);
 
         if (patientDetails && appointmentType && org) {
+          // Get payment amount from the appointment record
+          const [appointmentWithPayment] = await db
+            .select({
+              paymentAmount: appointment.paymentAmount,
+              paymentCurrency: appointment.paymentCurrency,
+            })
+            .from(appointment)
+            .where(eq(appointment.id, appointmentId))
+            .limit(1);
+
+          console.log("🔍 Debug - Payment details:", {
+            paymentAmount: appointmentWithPayment?.paymentAmount,
+            paymentCurrency: appointmentWithPayment?.paymentCurrency,
+            meetingLink: appointmentDetails.meetingLink,
+          });
+
           await sendAppointmentNotificationToOwners(
             organizationId,
             org.name,
@@ -611,6 +629,9 @@ async function handleCheckoutSessionCompleted(
               notes: appointmentDetails.notes || undefined,
               isPaidAppointment: true,
               paymentStatus: "paid",
+              paymentAmount: appointmentWithPayment?.paymentAmount || undefined,
+              paymentCurrency:
+                appointmentWithPayment?.paymentCurrency || undefined,
             },
           );
         }

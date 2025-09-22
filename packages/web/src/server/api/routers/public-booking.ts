@@ -1049,37 +1049,8 @@ export const publicBookingRouter = createTRPCRouter({
           })
           .where(eq(appointment.id, newAppointment[0]!.id));
 
-        // Send notification to organization owners for paid appointment
-        try {
-          await sendAppointmentNotificationToOwners(
-            ctx.db,
-            org[0].id,
-            org[0].name,
-            org[0].logo,
-            {
-              patientName: `${input.patientInfo.firstName} ${input.patientInfo.lastName}`,
-              patientEmail: input.patientInfo.email,
-              patientPhoneNumber: input.patientInfo.phoneNumber,
-              appointmentTitle,
-              appointmentDate: format(input.startTime, "EEEE, MMMM d, yyyy", {
-                locale: fr,
-              }),
-              appointmentTime: `${format(input.startTime, "HH:mm")} - ${format(input.endTime, "HH:mm")}`,
-              appointmentType: appointmentType[0].name,
-              duration: appointmentType[0].defaultDurationMinutes,
-              meetingLink: undefined, // No meeting link until payment is confirmed
-              notes: input.notes,
-              isPaidAppointment: true,
-              paymentStatus: "pending",
-            },
-          );
-        } catch (notificationError) {
-          console.error(
-            "Failed to send notification to organization owners:",
-            notificationError,
-          );
-          // Don't fail the appointment creation if notification fails
-        }
+        // Note: For paid appointments, we only notify owners after successful payment
+        // This notification will be sent from the Stripe webhook when payment is confirmed
 
         return {
           success: true,
