@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   organizationAvailability,
@@ -422,7 +422,11 @@ export const availabilityRouter = createTRPCRouter({
             eq(appointment.organizationId, ctx.organization.id),
             gte(appointment.startTime, startOfDay),
             lte(appointment.startTime, endOfDay),
-            eq(appointment.status, "scheduled"), // Only consider scheduled appointments
+            // Include both scheduled and confirmed appointments as "taken" slots
+            or(
+              eq(appointment.status, "scheduled"),
+              eq(appointment.status, "confirmed"),
+            ),
           ),
         );
 

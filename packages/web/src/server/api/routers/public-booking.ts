@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, gte, lte, desc } from "drizzle-orm";
+import { eq, and, gte, lte, desc, or } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import {
   appointment,
@@ -650,7 +650,7 @@ export const publicBookingRouter = createTRPCRouter({
         .from(organizationAvailability)
         .where(eq(organizationAvailability.organizationId, org[0].id));
 
-      // Get existing appointments for the date
+      // Get existing appointments for the date (both scheduled and confirmed are "taken")
       const existingAppointments = await ctx.db
         .select({
           startTime: appointment.startTime,
@@ -662,7 +662,11 @@ export const publicBookingRouter = createTRPCRouter({
             eq(appointment.organizationId, org[0].id),
             gte(appointment.startTime, startOfDay(selectedDate)),
             lte(appointment.startTime, endOfDay(selectedDate)),
-            eq(appointment.status, "scheduled"),
+            // Include both scheduled and confirmed appointments as "taken" slots
+            or(
+              eq(appointment.status, "scheduled"),
+              eq(appointment.status, "confirmed"),
+            ),
           ),
         );
 
@@ -806,14 +810,18 @@ export const publicBookingRouter = createTRPCRouter({
         });
       }
 
-      // Check for slot availability
+      // Check for slot availability (both scheduled and confirmed are "taken")
       const conflictingAppointment = await ctx.db
         .select()
         .from(appointment)
         .where(
           and(
             eq(appointment.organizationId, org[0].id),
-            eq(appointment.status, "scheduled"),
+            // Include both scheduled and confirmed appointments as "taken" slots
+            or(
+              eq(appointment.status, "scheduled"),
+              eq(appointment.status, "confirmed"),
+            ),
             // Check for time conflicts
             lte(appointment.startTime, input.endTime),
             gte(appointment.endTime, input.startTime),
