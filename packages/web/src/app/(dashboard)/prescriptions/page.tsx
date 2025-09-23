@@ -18,23 +18,30 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export default function PrescriptionsPage() {
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
-  const [selectedPrescription, setSelectedPrescription] =
-    React.useState<any>(null);
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = React.useState<
+    string | null
+  >(null);
 
-  const handleViewPrescription = async (prescriptionId: string) => {
-    try {
-      const prescription = await api.prescriptions.getById.query({
-        id: prescriptionId,
-      });
-      setSelectedPrescription(prescription);
-      setViewDialogOpen(true);
-    } catch (error) {
-      console.error("Error loading prescription:", error);
-    }
+  // Fetch prescription data when viewing
+  const { data: selectedPrescription } = api.prescriptions.getById.useQuery(
+    { id: selectedPrescriptionId! },
+    { enabled: !!selectedPrescriptionId },
+  );
+
+  const handleViewPrescription = (prescriptionId: string) => {
+    setSelectedPrescriptionId(prescriptionId);
+    setViewDialogOpen(true);
   };
 
   const handlePrescriptionCreated = () => {
     setCreateDialogOpen(false);
+  };
+
+  const handleCloseViewDialog = (open: boolean) => {
+    setViewDialogOpen(open);
+    if (!open) {
+      setSelectedPrescriptionId(null);
+    }
   };
 
   return (
@@ -75,7 +82,7 @@ export default function PrescriptionsPage() {
       />
 
       {/* View Prescription Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+      <Dialog open={viewDialogOpen} onOpenChange={handleCloseViewDialog}>
         <DialogContent className="max-h-[90vh] max-w-4xl">
           <DialogHeader>
             <DialogTitle>
