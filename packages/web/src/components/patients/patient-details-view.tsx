@@ -19,6 +19,7 @@ import { CreateAppointmentDialog } from "@/components/calendar/create-appointmen
 import { AppointmentDetailsDialog } from "@/components/calendar/appointment-details-dialog";
 import { UpdatePatientDialog } from "./update-patient-dialog";
 import { PatientNotes } from "./patient-notes";
+import { PatientPrescriptions } from "@/components/prescriptions/patient-prescriptions";
 import type { Patient } from "@/types/patient";
 
 type Appointment = {
@@ -303,6 +304,16 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
           {/* Patient Notes */}
           <div className="mt-6">
             <PatientNotes patientId={patientId} />
+          </div>
+
+          {/* Patient Prescriptions */}
+          <div className="mt-6">
+            <PatientPrescriptions
+              patientId={patientId}
+              patientName={
+                patient ? `${patient.firstName} ${patient.lastName}` : ""
+              }
+            />
           </div>
         </div>
 

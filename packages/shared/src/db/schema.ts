@@ -5,6 +5,7 @@ import {
   boolean,
   integer,
   uuid,
+  numeric,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -348,3 +349,134 @@ export const organizationAppointmentConfig = pgTable(
       .notNull(),
   },
 );
+export const drug = pgTable("drug", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  // Display/search fields (unchanged names)
+  brand: text("brand").notNull(),
+  dci: text("dci").notNull(),
+  substanceActive: text("substance_active").notNull(),
+
+  strength: text("strength").notNull(),
+  strengthNorm: text("strength_norm").notNull(),
+
+  form: text("form").notNull(),
+  formNorm: text("form_norm").notNull(),
+  route: text("route").notNull(),
+
+  presentation: text("presentation").notNull(),
+
+  // Regulatory (same names)
+  statutAmm: text("statut_amm"),
+  statutCommercialisation: text("statut_commercialisation"),
+  classeTherapeutique: text("classe_therapeutique"),
+
+  // Pricing (numeric types for better performance)
+  ppv: numeric("ppv", { precision: 12, scale: 2 }),
+  ph: numeric("ph", { precision: 12, scale: 2 }),
+  pfht: numeric("pfht", { precision: 12, scale: 2 }),
+  code: text("code"),
+  // store VAT as numeric percent (0, 7, etc.)
+  tva: numeric("tva", { precision: 4, scale: 2 }),
+
+  // Packaging (numeric for decimal quantities)
+  packQty: numeric("pack_qty", { precision: 12, scale: 3 }),
+  packUnit: text("pack_unit"),
+  packContainer: text("pack_container"),
+
+  // Search
+  haystack: text("haystack"), // raw searchable text (we’ll index/FTS this)
+
+  // Status & metadata
+  isActive: boolean("is_active").default(true).notNull(),
+  source: text("source").default("morocco_drugs"),
+  // NEW (nullable helpers)
+  country: text("country").default("MA"),
+  atcCode: text("atc_code"),
+  sourceCode: text("source_code"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// ORGANIZATION CUSTOM DRUG
+// - Add optional haystack + same optional helpers for parity
+// ───────────────────────────────────────────────────────────────────────────────
+export const organizationCustomDrug = pgTable("organization_custom_drug", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  organizationId: text("organization_id").notNull(),
+
+  brand: text("brand").notNull(),
+  dci: text("dci").notNull(),
+  substanceActive: text("substance_active").notNull(),
+  strength: text("strength").notNull(),
+  form: text("form").notNull(),
+  route: text("route").notNull(),
+  presentation: text("presentation").notNull(),
+
+  description: text("description"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true).notNull(),
+
+  // Optional parity with system catalog
+  haystack: text("haystack"),
+  country: text("country").default("MA"),
+  atcCode: text("atc_code"),
+  sourceCode: text("source_code"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ───────────────────────────────────────────────────────────────────────────────
+// PRESCRIPTION & PRESCRIPTION ITEM (unchanged names; tiny safety additions)
+// ───────────────────────────────────────────────────────────────────────────────
+export const prescription = pgTable("prescription", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  patientId: uuid("patient_id").notNull(),
+  organizationId: text("organization_id").notNull(),
+
+  prescriptionNumber: text("prescription_number").notNull(),
+  date: timestamp("date").defaultNow().notNull(),
+  diagnosis: text("diagnosis"),
+
+  doctorName: text("doctor_name").notNull(),
+  doctorSignature: text("doctor_signature"),
+  doctorLicenseNumber: text("doctor_license_number"),
+
+  instructions: text("instructions"),
+  notes: text("notes"),
+  status: text("status").default("active").notNull(), // active/completed/cancelled
+
+  appointmentId: uuid("appointment_id"),
+  createdById: text("created_by_id").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const prescriptionItem = pgTable("prescription_item", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  prescriptionId: uuid("prescription_id").notNull(),
+
+  drugId: uuid("drug_id"),
+  customDrugId: uuid("custom_drug_id"),
+
+  drugName: text("drug_name").notNull(),
+  drugDci: text("drug_dci").notNull(),
+  drugStrength: text("drug_strength").notNull(),
+  drugForm: text("drug_form").notNull(),
+  drugPresentation: text("drug_presentation").notNull(),
+
+  dosage: text("dosage").notNull(),
+  frequency: text("frequency").notNull(),
+  duration: text("duration").notNull(),
+  quantity: text("quantity"),
+  instructions: text("instructions"),
+
+  order: integer("order").default(0).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
