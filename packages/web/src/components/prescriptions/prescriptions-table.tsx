@@ -54,21 +54,18 @@ import {
   User,
   Search,
   Filter,
-  Plus,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { api } from "@/trpc/react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 
 interface PrescriptionsTableProps {
   patientId?: string;
 }
 
 export function PrescriptionsTable({ patientId }: PrescriptionsTableProps) {
-  const router = useRouter();
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -216,12 +213,6 @@ export function PrescriptionsTable({ patientId }: PrescriptionsTableProps) {
                 {filteredPrescriptions.length} ordonnance(s) trouvée(s)
               </CardDescription>
             </div>
-            {!patientId && (
-              <Button onClick={() => router.push("/prescriptions/create")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Nouvelle ordonnance
-              </Button>
-            )}
           </div>
 
           {/* Filters */}

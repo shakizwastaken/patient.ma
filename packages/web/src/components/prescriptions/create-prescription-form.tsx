@@ -202,7 +202,11 @@ export function CreatePrescriptionForm() {
   return (
     <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form
+          id="prescription-form"
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-6"
+        >
           {/* Patient Selection */}
           <Card>
             <CardHeader>
@@ -469,31 +473,6 @@ export function CreatePrescriptionForm() {
               />
             </CardContent>
           </Card>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={handleCancel}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              disabled={createPrescription.isPending}
-              className="flex items-center gap-2"
-            >
-              {createPrescription.isPending ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
-                  Création...
-                </>
-              ) : (
-                <>
-                  <FileText className="h-4 w-4" />
-                  Créer l'ordonnance
-                </>
-              )}
-            </Button>
-          </div>
         </form>
 
         {/* Drug Search Dialog */}

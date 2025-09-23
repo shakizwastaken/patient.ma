@@ -8,11 +8,14 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
 import { CreatePrescriptionForm } from "@/components/prescriptions/create-prescription-form";
+import { CancelButton } from "@/components/prescriptions/cancel-button";
 import { api, HydrateClient } from "@/trpc/server";
 
 export default async function CreatePrescriptionPage() {
-  // Prefetch patients data for the form
+  // Prefetch patients data
   await api.patients.getAll.prefetch();
 
   return (
@@ -47,9 +50,21 @@ export default async function CreatePrescriptionPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Nouvelle ordonnance
-          </h1>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Nouvelle ordonnance
+            </h1>
+            <p className="text-muted-foreground">
+              Créez une nouvelle ordonnance pour un patient
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <CancelButton />
+            <Button form="prescription-form" type="submit">
+              <FileText className="mr-2 h-4 w-4" />
+              Créer l'ordonnance
+            </Button>
+          </div>
         </div>
         <HydrateClient>
           <CreatePrescriptionForm />

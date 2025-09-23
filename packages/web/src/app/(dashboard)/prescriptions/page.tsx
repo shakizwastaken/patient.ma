@@ -10,6 +10,9 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { PrescriptionsTable } from "@/components/prescriptions/prescriptions-table";
 import { api, HydrateClient } from "@/trpc/server";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import Link from "next/link";
 
 export default async function PrescriptionsPage() {
   // Prefetch prescriptions data
@@ -41,7 +44,20 @@ export default async function PrescriptionsPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Ordonnances</h1>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Ordonnances
+            </h1>
+            <p className="text-muted-foreground">
+              Gérez les ordonnances de vos patients
+            </p>
+          </div>
+          <Link href="/prescriptions/create">
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nouvelle ordonnance
+            </Button>
+          </Link>
         </div>
         <HydrateClient>
           <PrescriptionsTable />
