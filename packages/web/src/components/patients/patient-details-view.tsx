@@ -180,9 +180,11 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* Patient Information */}
-        <div className="md:col-span-2">
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Left Column - Patient Info & Appointments */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* Patient Information */}
           <Card>
             <CardHeader>
               <CardTitle>Patient Information</CardTitle>
@@ -243,82 +245,7 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
             </CardContent>
           </Card>
 
-          {/* Recent Appointments */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Recent Appointments</CardTitle>
-              <CardDescription>Last 30 days</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentAppointments.length === 0 ? (
-                <div className="py-6 text-center">
-                  <Calendar className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-                  <p className="text-muted-foreground">
-                    No recent appointments
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentAppointments.slice(0, 5).map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-lg border p-3"
-                      onClick={() => handleAppointmentClick(appointment)}
-                    >
-                      <div className="flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <h4 className="font-medium">{appointment.title}</h4>
-                          <Badge variant="outline" className="text-xs">
-                            {appointment.type.replace("_", " ")}
-                          </Badge>
-                          <Badge
-                            variant={
-                              appointment.status === "completed"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {appointment.status}
-                          </Badge>
-                        </div>
-                        <p className="text-muted-foreground text-sm">
-                          {format(
-                            new Date(appointment.startTime),
-                            "MMM do, yyyy 'at' h:mm a",
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {recentAppointments.length > 5 && (
-                    <p className="text-muted-foreground text-center text-sm">
-                      +{recentAppointments.length - 5} more appointments
-                    </p>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Patient Notes */}
-          <div className="mt-6">
-            <PatientNotes patientId={patientId} />
-          </div>
-
-          {/* Patient Prescriptions */}
-          <div className="mt-6">
-            <PatientPrescriptions
-              patientId={patientId}
-              patientName={
-                patient ? `${patient.firstName} ${patient.lastName}` : ""
-              }
-            />
-          </div>
-        </div>
-
-        {/* Upcoming Appointments */}
-        <div>
+          {/* Upcoming Appointments */}
           <Card>
             <CardHeader>
               <CardTitle>Upcoming Appointments</CardTitle>
@@ -368,6 +295,68 @@ export function PatientDetailsView({ patientId }: PatientDetailsViewProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Recent Appointments */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Appointments</CardTitle>
+              <CardDescription>Last 30 days</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {recentAppointments.length === 0 ? (
+                <div className="py-6 text-center">
+                  <Calendar className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+                  <p className="text-muted-foreground">
+                    No recent appointments
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentAppointments.slice(0, 3).map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-lg border p-3"
+                      onClick={() => handleAppointmentClick(appointment)}
+                    >
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <h4 className="text-sm font-medium">{appointment.title}</h4>
+                          <Badge variant="outline" className="text-xs">
+                            {appointment.type.replace("_", " ")}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          {format(
+                            new Date(appointment.startTime),
+                            "MMM do, h:mm a",
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {recentAppointments.length > 3 && (
+                    <p className="text-muted-foreground text-center text-sm">
+                      +{recentAppointments.length - 3} more appointments
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Notes & Prescriptions */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Patient Notes */}
+          <PatientNotes patientId={patientId} />
+
+          {/* Patient Prescriptions */}
+          <PatientPrescriptions
+            patientId={patientId}
+            patientName={
+              patient ? `${patient.firstName} ${patient.lastName}` : ""
+            }
+          />
         </div>
       </div>
 

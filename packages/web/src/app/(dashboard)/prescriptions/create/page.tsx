@@ -8,12 +8,12 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { PrescriptionsTable } from "@/components/prescriptions/prescriptions-table";
+import { CreatePrescriptionForm } from "@/components/prescriptions/create-prescription-form";
 import { api, HydrateClient } from "@/trpc/server";
 
-export default async function PrescriptionsPage() {
-  // Prefetch prescriptions data
-  await api.prescriptions.getAll.prefetch({});
+export default async function CreatePrescriptionPage() {
+  // Prefetch patients data for the form
+  await api.patients.getAll.prefetch();
 
   return (
     <>
@@ -32,8 +32,14 @@ export default async function PrescriptionsPage() {
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator className="hidden md:block" />
+              <BreadcrumbItem className="hidden md:block">
+                <BreadcrumbLink href="/prescriptions">
+                  Ordonnances
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden md:block" />
               <BreadcrumbItem>
-                <BreadcrumbPage>Ordonnances</BreadcrumbPage>
+                <BreadcrumbPage>Nouvelle ordonnance</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
@@ -41,10 +47,12 @@ export default async function PrescriptionsPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold tracking-tight">Ordonnances</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Nouvelle ordonnance
+          </h1>
         </div>
         <HydrateClient>
-          <PrescriptionsTable />
+          <CreatePrescriptionForm />
         </HydrateClient>
       </div>
     </>

@@ -35,7 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CreatePrescriptionDialog } from "./create-prescription-dialog";
+import { useRouter } from "next/navigation";
 import { PrescriptionPrintView } from "./prescription-print-view";
 import {
   Dialog,
@@ -56,10 +56,8 @@ export function PatientPrescriptions({
   patientName,
   onPrescriptionCreated,
 }: PatientPrescriptionsProps) {
-  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const router = useRouter();
   const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
-  const [selectedPrescription, setSelectedPrescription] =
-    React.useState<any>(null);
 
   // Fetch prescriptions for this patient
   const {
@@ -92,15 +90,25 @@ export function PatientPrescriptions({
     },
   });
 
-  const handleViewPrescription = async (prescriptionId: string) => {
-    try {
-      const prescription = await api.prescriptions.getById.query({
-        id: prescriptionId,
-      });
-      setSelectedPrescription(prescription);
-      setViewDialogOpen(true);
-    } catch (error) {
-      toast.error("Erreur lors du chargement de l'ordonnance");
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = React.useState<
+    string | null
+  >(null);
+
+  // Fetch prescription data when viewing
+  const { data: selectedPrescription } = api.prescriptions.getById.useQuery(
+    { id: selectedPrescriptionId! },
+    { enabled: !!selectedPrescriptionId },
+  );
+
+  const handleViewPrescription = (prescriptionId: string) => {
+    setSelectedPrescriptionId(prescriptionId);
+    setViewDialogOpen(true);
+  };
+
+  const handleCloseViewDialog = (open: boolean) => {
+    setViewDialogOpen(open);
+    if (!open) {
+      setSelectedPrescriptionId(null);
     }
   };
 
@@ -117,7 +125,6 @@ export function PatientPrescriptions({
   const handlePrescriptionCreated = () => {
     refetch();
     onPrescriptionCreated?.();
-    setCreateDialogOpen(false);
   };
 
   const getStatusBadgeVariant = (status: string) => {
@@ -179,7 +186,9 @@ export function PatientPrescriptions({
               </CardDescription>
             </div>
             <Button
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={() =>
+                router.push(`/prescriptions/create?patientId=${patientId}`)
+              }
               className="flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
@@ -299,16 +308,8 @@ export function PatientPrescriptions({
         </CardContent>
       </Card>
 
-      {/* Create Prescription Dialog */}
-      <CreatePrescriptionDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onPrescriptionCreated={handlePrescriptionCreated}
-        patient={{ id: patientId } as Patient}
-      />
-
       {/* View Prescription Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+      <Dialog open={viewDialogOpen} onOpenChange={handleCloseViewDialog}>
         <DialogContent className="max-h-[90vh] max-w-4xl">
           <DialogHeader>
             <DialogTitle>
