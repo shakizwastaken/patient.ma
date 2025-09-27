@@ -117,7 +117,13 @@ export function PublicBookingSettings() {
   };
 
   const hasChanges =
-    publicBookingEnabled !== (organizationData?.publicBookingEnabled || false);
+    publicBookingEnabled !==
+      ((activeOrganization as ExtendedOrganization)?.publicBookingEnabled ||
+        false) ||
+    organizationSlug !==
+      ((activeOrganization as ExtendedOrganization)?.slug || "") ||
+    description !==
+      ((activeOrganization as ExtendedOrganization)?.description || "");
 
   const bookingUrl = organizationData?.slug
     ? `${window.location.origin}/book/${organizationData.slug}`
